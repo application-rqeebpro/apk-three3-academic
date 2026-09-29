@@ -106,7 +106,7 @@ fun AdminDashboardScreen(
                         value = adminPasswordInput,
                         onValueChange = { adminPasswordInput = it },
                         label = { Text("كلمة مرور المالك") },
-                        placeholder = { Text("أدخل كلمة المرور (الافتراضية: admin123)") },
+                        placeholder = { Text("أدخل كلمة مرور المالك السرية") },
                         visualTransformation = androidx.compose.ui.text.input.PasswordVisualTransformation(),
                         modifier = Modifier.fillMaxWidth(),
                         singleLine = true
@@ -167,7 +167,7 @@ fun AdminDashboardScreen(
                                     )
                                 )
                                 Text(
-                                    text = "حساب المالك: 782916997 • كلمة المرور: admin123",
+                                    text = "حساب المالك المعتمد: 782916997 • فتح لوحة التحكم فوراً",
                                     style = MaterialTheme.typography.bodySmall.copy(
                                         fontSize = 11.sp,
                                         color = Color(0xFF92400E)

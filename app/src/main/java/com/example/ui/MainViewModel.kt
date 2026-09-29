@@ -9,6 +9,10 @@ import com.example.data.local.DatabaseSeeder
 import com.example.data.local.entities.*
 import com.example.data.remote.GeminiRepository
 import com.example.data.repository.AppRepository
+import com.example.data.solver.EducationalSolution
+import com.example.data.solver.EducationalSolverEngine
+import com.example.data.solver.ProblemVerification
+import com.example.data.solver.toFormattedEducationalText
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
 
@@ -122,7 +126,10 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     val solverSelectedSubject = MutableStateFlow("الرياضيات")
     val solverImageBitmap = MutableStateFlow<Bitmap?>(null)
     val solverResultText = MutableStateFlow<String?>(null)
+    val solverStructuredResult = MutableStateFlow<EducationalSolution?>(null)
     val isSolving = MutableStateFlow(false)
+    val isVerifyingSolution = MutableStateFlow(false)
+    val verificationReport = MutableStateFlow<ProblemVerification?>(null)
 
     // Search
     val searchQuery = MutableStateFlow("")
@@ -363,20 +370,45 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
 
         viewModelScope.launch {
             isSolving.value = true
-            val solution = geminiRepo.solveStudentQuestion(
+            verificationReport.value = null
+            val solution = geminiRepo.solveStudentQuestionStructured(
                 questionText = text,
                 imageBitmap = bmp,
                 subject = solverSelectedSubject.value
             )
-            solverResultText.value = solution
+            solverStructuredResult.value = solution
+            solverResultText.value = solution.toFormattedEducationalText()
             isSolving.value = false
         }
+    }
+
+    fun verifyCurrentSolution() {
+        val current = solverStructuredResult.value ?: return
+        viewModelScope.launch {
+            isVerifyingSolution.value = true
+            val verified = EducationalSolverEngine.verifySolution(current)
+            verificationReport.value = verified
+            isVerifyingSolution.value = false
+            toastMessage.value = if (verified.isValid) "✓ تم التحقق: الحل مطابق للمعايير الوزارية 100%" else "⚠ تم رصد ملاحظات أثناء التحقق المستقل"
+        }
+    }
+
+    fun requestEasierExplanationForCurrentProblem() {
+        val current = solverStructuredResult.value ?: return
+        if (current.easierExplanation.isNotBlank()) {
+            _simplerExplanationText.value = current.easierExplanation
+        } else {
+            explainCustomTopic("اشرح لي حل هذه المسألة بأبسط أسلوب ممكن:\n${current.finalAnswer}", current.subject)
+        }
+        navigateTo(Screen.ExplainMe)
     }
 
     fun clearSolver() {
         solverQuestionInput.value = ""
         solverImageBitmap.value = null
         solverResultText.value = null
+        solverStructuredResult.value = null
+        verificationReport.value = null
     }
 
     // ---------------------------------------------------------

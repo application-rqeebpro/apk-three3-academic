@@ -145,12 +145,12 @@ fun LoginScreen(
                         OutlinedButton(
                             onClick = {
                                 phoneOrEmail = "782916997"
-                                password = "admin123"
+                                password = ""
                             },
                             shape = RoundedCornerShape(8.dp),
                             modifier = Modifier.weight(1f)
                         ) {
-                            Text(text = "حساب المدير", fontSize = 12.sp)
+                            Text(text = "حساب المدير 👑", fontSize = 12.sp)
                         }
                     }
                 }

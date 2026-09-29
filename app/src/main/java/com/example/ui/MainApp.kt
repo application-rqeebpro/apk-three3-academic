@@ -203,7 +203,7 @@ fun MainApp(viewModel: MainViewModel) {
                                 value = adminPassword,
                                 onValueChange = { adminPassword = it },
                                 label = { Text("كلمة مرور المالك") },
-                                placeholder = { Text("أدخل كلمة المرور (الافتراضية: admin123)") },
+                                placeholder = { Text("أدخل كلمة مرور المالك السرية") },
                                 visualTransformation = androidx.compose.ui.text.input.PasswordVisualTransformation(),
                                 modifier = Modifier.fillMaxWidth()
                             )
