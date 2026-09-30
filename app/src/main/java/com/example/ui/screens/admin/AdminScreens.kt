@@ -123,8 +123,12 @@ fun AdminDashboardScreen(
                     Button(
                         onClick = {
                             if (adminPasswordInput.isNotBlank()) {
-                                viewModel.login("782916997", adminPasswordInput) {
-                                    // logged in
+                                viewModel.login(
+                                    phoneOrEmail = "782916997",
+                                    pass = adminPasswordInput,
+                                    onError = { loginError = it }
+                                ) {
+                                    loginError = null
                                 }
                             } else {
                                 loginError = "يرجى إدخال كلمة المرور"
@@ -137,44 +141,6 @@ fun AdminDashboardScreen(
                             .height(48.dp)
                     ) {
                         Text(text = "دخول إلى لوحة التحكم 🔐", fontWeight = FontWeight.Bold)
-                    }
-
-                    // Direct One-Tap Instant Access for the Owner
-                    Surface(
-                        shape = RoundedCornerShape(12.dp),
-                        color = Color(0xFFFEF3C7),
-                        border = androidx.compose.foundation.BorderStroke(1.dp, AmberSecondary),
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .clickable {
-                                viewModel.login("782916997", "admin123") {
-                                    // logged in
-                                }
-                            }
-                    ) {
-                        Row(
-                            modifier = Modifier.padding(14.dp),
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.spacedBy(10.dp)
-                        ) {
-                            Text(text = "⚡", fontSize = 22.sp)
-                            Column {
-                                Text(
-                                    text = "الدخول السريع كمالك الأكاديمية (نقرة واحدة)",
-                                    style = MaterialTheme.typography.labelMedium.copy(
-                                        fontWeight = FontWeight.Bold,
-                                        color = Color(0xFF78350F)
-                                    )
-                                )
-                                Text(
-                                    text = "حساب المالك المعتمد: 782916997 • فتح لوحة التحكم فوراً",
-                                    style = MaterialTheme.typography.bodySmall.copy(
-                                        fontSize = 11.sp,
-                                        color = Color(0xFF92400E)
-                                    )
-                                )
-                            }
-                        }
                     }
 
                     TextButton(onClick = { viewModel.navigateTo(Screen.Home) }) {
@@ -220,10 +186,27 @@ fun AdminDashboardScreen(
                         }
 
                         Column(modifier = Modifier.weight(1f)) {
-                            Text(
-                                text = "لوحة تحكم المالك والمدير العام",
-                                style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold, color = Color.White)
-                            )
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(8.dp)
+                            ) {
+                                Text(
+                                    text = "لوحة تحكم المالك",
+                                    style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold, color = Color.White)
+                                )
+                                Surface(
+                                    shape = RoundedCornerShape(6.dp),
+                                    color = AmberSecondary
+                                ) {
+                                    Text(
+                                        text = "الإصدار 2.0",
+                                        color = Color(0xFF78350F),
+                                        fontSize = 10.sp,
+                                        fontWeight = FontWeight.Bold,
+                                        modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+                                    )
+                                }
+                            }
                             Text(
                                 text = "مرحباً بك يا ${currentUser?.fullName} • 782916997",
                                 style = MaterialTheme.typography.bodySmall.copy(color = AmberLight, fontWeight = FontWeight.Bold)

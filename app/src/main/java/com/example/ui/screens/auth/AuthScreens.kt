@@ -30,8 +30,8 @@ fun LoginScreen(
     viewModel: MainViewModel,
     modifier: Modifier = Modifier
 ) {
-    var phoneOrEmail by remember { mutableStateOf("770000000") }
-    var password by remember { mutableStateOf("123456") }
+    var phoneOrEmail by remember { mutableStateOf("") }
+    var password by remember { mutableStateOf("") }
     var rememberMe by remember { mutableStateOf(true) }
     var showForgotDialog by remember { mutableStateOf(false) }
 
@@ -59,6 +59,21 @@ fun LoginScreen(
                 text = "أكاديمية الثالث الثانوي اليمني",
                 style = MaterialTheme.typography.headlineSmall.copy(fontWeight = FontWeight.Bold, color = NavyPrimary)
             )
+            Spacer(modifier = Modifier.height(4.dp))
+            Surface(
+                shape = RoundedCornerShape(8.dp),
+                color = AmberSecondary.copy(alpha = 0.2f),
+                border = androidx.compose.foundation.BorderStroke(1.dp, AmberSecondary)
+            ) {
+                Text(
+                    text = "الإصدار 2.0 (V2.0) 🇾🇪",
+                    color = NavyPrimary,
+                    fontWeight = FontWeight.Bold,
+                    fontSize = 11.sp,
+                    modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp)
+                )
+            }
+            Spacer(modifier = Modifier.height(4.dp))
             Text(
                 text = "تسجيل الدخول إلى حسابك الدراسي",
                 style = MaterialTheme.typography.bodyMedium.copy(color = MaterialTheme.colorScheme.onSurfaceVariant)
@@ -124,34 +139,6 @@ fun LoginScreen(
                             .testTag("login_button")
                     ) {
                         Text(text = "تسجيل الدخول", fontWeight = FontWeight.Bold, fontSize = 15.sp)
-                    }
-
-                    // Quick switcher demo buttons
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(8.dp)
-                    ) {
-                        OutlinedButton(
-                            onClick = {
-                                phoneOrEmail = "770000000"
-                                password = "123456"
-                            },
-                            shape = RoundedCornerShape(8.dp),
-                            modifier = Modifier.weight(1f)
-                        ) {
-                            Text(text = "حساب طالب", fontSize = 12.sp)
-                        }
-
-                        OutlinedButton(
-                            onClick = {
-                                phoneOrEmail = "782916997"
-                                password = ""
-                            },
-                            shape = RoundedCornerShape(8.dp),
-                            modifier = Modifier.weight(1f)
-                        ) {
-                            Text(text = "حساب المدير 👑", fontSize = 12.sp)
-                        }
                     }
                 }
             }

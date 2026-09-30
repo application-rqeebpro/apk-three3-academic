@@ -207,7 +207,6 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     init {
         viewModelScope.launch {
             DatabaseSeeder.seedDatabaseIfEmpty(database)
-            repository.autoLoginDemoStudent()
         }
     }
 
@@ -235,14 +234,21 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     // AUTHENTICATION
     // ---------------------------------------------------------
 
-    fun login(phoneOrEmail: String, pass: String, onSuccess: () -> Unit) {
+    fun login(
+        phoneOrEmail: String,
+        pass: String,
+        onError: ((String) -> Unit)? = null,
+        onSuccess: () -> Unit
+    ) {
         viewModelScope.launch {
             val result = repository.login(phoneOrEmail, pass)
             result.onSuccess {
                 toastMessage.value = "أهلاً بك يا ${it.fullName}"
                 onSuccess()
             }.onFailure {
-                toastMessage.value = it.message ?: "فشل تسجيل الدخول"
+                val err = it.message ?: "فشل تسجيل الدخول"
+                toastMessage.value = err
+                onError?.invoke(err)
             }
         }
     }

@@ -234,6 +234,35 @@ fun ProfileScreen(
                 }
             }
         }
+
+        // Version 2.0 info footer
+        item {
+            Card(
+                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)),
+                shape = RoundedCornerShape(12.dp),
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Column(
+                    modifier = Modifier.padding(16.dp).fillMaxWidth(),
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.spacedBy(4.dp)
+                ) {
+                    Text(
+                        text = "🇾🇪 أكاديمية الثالث الثانوي اليمني",
+                        style = MaterialTheme.typography.labelLarge.copy(fontWeight = FontWeight.Bold, color = NavyPrimary)
+                    )
+                    Text(
+                        text = "الإصدار 2.0 (Version 2.0.0)",
+                        style = MaterialTheme.typography.bodySmall.copy(fontWeight = FontWeight.SemiBold, color = AmberSecondary)
+                    )
+                    Text(
+                        text = "المنهج الوزاري اليمني المعتمد • نظام الحل الدقيق والمحمي",
+                        style = MaterialTheme.typography.bodySmall.copy(color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 11.sp)
+                    )
+                }
+            }
+            Spacer(modifier = Modifier.height(16.dp))
+        }
     }
 
     // Change Password Dialog

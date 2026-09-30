@@ -215,45 +215,17 @@ fun MainApp(viewModel: MainViewModel) {
                                     style = MaterialTheme.typography.bodySmall
                                 )
                             }
-
-                            // Quick login shortcut for Owner
-                            Surface(
-                                shape = androidx.compose.foundation.shape.RoundedCornerShape(10.dp),
-                                color = MaterialTheme.colorScheme.primaryContainer,
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .clickable {
-                                        viewModel.login("782916997", "admin123") {
-                                            showOwnerLoginDialog = false
-                                            viewModel.navigateTo(Screen.AdminDashboard)
-                                        }
-                                    }
-                            ) {
-                                Row(
-                                    modifier = Modifier.padding(12.dp),
-                                    verticalAlignment = Alignment.CenterVertically,
-                                    horizontalArrangement = Arrangement.spacedBy(8.dp)
-                                ) {
-                                    Text(text = "⚡", fontSize = 18.sp)
-                                    Column {
-                                        Text(
-                                            text = "الدخول السريع كمالك (Admin)",
-                                            style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Bold)
-                                        )
-                                        Text(
-                                            text = "الحساب: 782916997 • فتح لوحة التحكم فوراً",
-                                            style = MaterialTheme.typography.bodySmall.copy(fontSize = 11.sp)
-                                        )
-                                    }
-                                }
-                            }
                         }
                     },
                     confirmButton = {
                         Button(
                             onClick = {
                                 if (adminPassword.isNotBlank()) {
-                                    viewModel.login("782916997", adminPassword) {
+                                    viewModel.login(
+                                        phoneOrEmail = "782916997",
+                                        pass = adminPassword,
+                                        onError = { errorMessage = it }
+                                    ) {
                                         showOwnerLoginDialog = false
                                         viewModel.navigateTo(Screen.AdminDashboard)
                                     }

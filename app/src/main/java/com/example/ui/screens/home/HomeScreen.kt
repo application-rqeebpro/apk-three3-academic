@@ -96,14 +96,31 @@ fun HomeScreen(
                                         fontWeight = FontWeight.Bold
                                     )
                                 )
-                                Text(
-                                    text = "أكاديمية الثالث الثانوي اليمني 🇾🇪",
-                                    style = MaterialTheme.typography.headlineSmall.copy(
-                                        color = Color.White,
-                                        fontWeight = FontWeight.ExtraBold,
-                                        fontSize = 20.sp
+                                Row(
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                                ) {
+                                    Text(
+                                        text = "أكاديمية الثالث الثانوي 🇾🇪",
+                                        style = MaterialTheme.typography.headlineSmall.copy(
+                                            color = Color.White,
+                                            fontWeight = FontWeight.ExtraBold,
+                                            fontSize = 19.sp
+                                        )
                                     )
-                                )
+                                    Surface(
+                                        shape = RoundedCornerShape(6.dp),
+                                        color = AmberSecondary
+                                    ) {
+                                        Text(
+                                            text = "الإصدار 2.0",
+                                            color = Color(0xFF78350F),
+                                            fontSize = 10.sp,
+                                            fontWeight = FontWeight.Bold,
+                                            modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+                                        )
+                                    }
+                                }
                             }
 
                             Box(
