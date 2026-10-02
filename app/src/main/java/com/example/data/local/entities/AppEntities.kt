@@ -115,17 +115,20 @@ data class ChapterEntity(
 data class LessonEntity(
     @PrimaryKey(autoGenerate = true)
     val id: Long = 0,
-    val chapterId: Long,
+    val chapterId: Long = 0,
     val unitId: Long,
     val subjectId: Long,
     val title: String,
-    val coreIdea: String, // الفكرة الأساسية
-    val simplifiedExplanation: String, // شرح مبسط خطوة بخطوة
-    val easierExplanation: String, // الشرح بطريقة أسهل مع تشبيهات وأمثلة واقعية
-    val keyPoints: String, // مفصول بـ "\n" أهم النقاط للحفظ والفهم
-    val formulas: String, // نصوص القوانين والرموز والوحدات
-    val solvedExample: String, // مثال محلول تفصيلي
-    val practiceExercise: String, // تدريب وسؤال مع الحل والتفسير
+    val coreIdea: String = "", // المفاهيم الأساسية
+    val simplifiedExplanation: String = "", // شرح مختصر وسهل خطوة بخطوة
+    val easierExplanation: String = "", // الشرح بطريقة أسهل مع تشبيهات وأمثلة واقعية
+    val keyPoints: String = "", // ملاحظات مهمة للطالب للحفظ والفهم
+    val formulas: String = "", // نصوص القوانين المهمة والمعادلات
+    val symbolsExplanation: String = "", // شرح معنى كل رمز في القانون
+    val solvedExample: String = "", // مثال محلول أول خطوة بخطوة
+    val solvedExample2: String = "", // مثال محلول ثانٍ خطوة بخطوة
+    val solvedExample3: String = "", // مثال ثالث عند الحاجة
+    val practiceExercise: String = "", // تمارين للتدريب مع الحل النموذجي
     val isPremium: Boolean = false,
     val sortOrder: Int = 0
 )
@@ -151,6 +154,7 @@ data class ExamEntity(
     @PrimaryKey(autoGenerate = true)
     val id: Long = 0,
     val subjectId: Long,
+    val unitId: Long? = null,
     val title: String,
     val durationMinutes: Int = 30,
     val totalQuestions: Int = 10,

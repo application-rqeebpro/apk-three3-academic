@@ -16,8 +16,8 @@ android {
     applicationId = "com.aistudio.yemenhighschool.qtrwzx"
     minSdk = 24
     targetSdk = 36
-    versionCode = 2
-    versionName = "2.0"
+    versionCode = 3
+    versionName = "3.0"
 
     testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
   }
@@ -60,6 +60,20 @@ android {
     includeInApk = false
     includeInBundle = true
   }
+  tasks.withType<org.jetbrains.kotlin.gradle.tasks.KotlinCompile>().configureEach {
+    compilerOptions {
+      freeCompilerArgs.add("-Xannotation-default-target=param-property")
+    }
+  }
+}
+
+// Ensure .env has valid GEMINI_API_KEY from system environment if available
+val envGeminiKey = System.getenv("GEMINI_API_KEY")
+if (!envGeminiKey.isNullOrBlank()) {
+    val envFile = rootProject.file(".env")
+    if (!envFile.exists() || !envFile.readText().contains("GEMINI_API_KEY=") || envFile.readText().contains("MY_GEMINI_API_KEY")) {
+        envFile.writeText("GEMINI_API_KEY=$envGeminiKey\n")
+    }
 }
 
 // Configure the Secrets Gradle Plugin to use .env and .env.example files

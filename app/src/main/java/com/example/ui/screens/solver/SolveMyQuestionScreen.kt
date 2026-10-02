@@ -5,8 +5,11 @@ import android.graphics.ImageDecoder
 import android.net.Uri
 import android.os.Build
 import android.provider.MediaStore
+import android.provider.OpenableColumns
+import android.util.Base64
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import com.example.data.remote.AttachedFile
 import androidx.compose.animation.*
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -31,7 +34,9 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.data.solver.EducationalSolution
+import com.example.data.solver.MathFormatter
 import com.example.data.solver.ProblemVerification
+import com.example.data.solver.toFormattedEducationalText
 import com.example.ui.MainViewModel
 import com.example.ui.Screen
 import com.example.ui.components.copyToClipboard
@@ -47,6 +52,7 @@ fun SolveMyQuestionScreen(
     val questionInput by viewModel.solverQuestionInput.collectAsState()
     val selectedSubject by viewModel.solverSelectedSubject.collectAsState()
     val imageBitmap by viewModel.solverImageBitmap.collectAsState()
+    val attachedFile by viewModel.solverAttachedFile.collectAsState()
     val solutionResult by viewModel.solverResultText.collectAsState()
     val structuredSolution by viewModel.solverStructuredResult.collectAsState()
     val isSolving by viewModel.isSolving.collectAsState()
@@ -55,6 +61,7 @@ fun SolveMyQuestionScreen(
 
     var selectedImageUri by remember { mutableStateOf<Uri?>(null) }
     var showVerifyDialog by remember { mutableStateOf(false) }
+    var expandedExplanations by remember(structuredSolution) { mutableStateOf(setOf<Int>()) }
 
     val photoPickerLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.GetContent()
@@ -69,8 +76,60 @@ fun SolveMyQuestionScreen(
                     MediaStore.Images.Media.getBitmap(context.contentResolver, uri)
                 }
                 viewModel.solverImageBitmap.value = bmp
+                viewModel.toastMessage.value = "تم إرفاق صورة المسألة بنجاح 📷"
             } catch (e: Exception) {
                 viewModel.toastMessage.value = "تعذر تحميل الصورة"
+            }
+        }
+    }
+
+    val documentPickerLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.GetContent()
+    ) { uri: Uri? ->
+        if (uri != null) {
+            try {
+                val contentResolver = context.contentResolver
+                val mimeType = contentResolver.getType(uri) ?: "application/pdf"
+                val bytes = contentResolver.openInputStream(uri)?.use { it.readBytes() }
+                if (bytes != null) {
+                    if (mimeType.startsWith("text/") || uri.toString().endsWith(".txt")) {
+                        val textContent = String(bytes, Charsets.UTF_8)
+                        if (viewModel.solverQuestionInput.value.isBlank()) {
+                            viewModel.solverQuestionInput.value = textContent
+                        } else {
+                            viewModel.solverQuestionInput.value += "\n$textContent"
+                        }
+                        viewModel.toastMessage.value = "تم استخراج وقراءة نص المسألة من الملف بنجاح 📄"
+                    } else if (mimeType.startsWith("image/")) {
+                        val bmp = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
+                            ImageDecoder.decodeBitmap(ImageDecoder.createSource(context.contentResolver, uri))
+                        } else {
+                            @Suppress("DEPRECATION")
+                            MediaStore.Images.Media.getBitmap(context.contentResolver, uri)
+                        }
+                        viewModel.solverImageBitmap.value = bmp
+                        viewModel.toastMessage.value = "تم تحميل صورة المسألة بنجاح 📷"
+                    } else {
+                        val base64 = Base64.encodeToString(bytes, Base64.NO_WRAP)
+                        val cursor = contentResolver.query(uri, null, null, null, null)
+                        val name = cursor?.use {
+                            if (it.moveToFirst()) {
+                                val idx = it.getColumnIndex(OpenableColumns.DISPLAY_NAME)
+                                if (idx >= 0) it.getString(idx) else null
+                            } else null
+                        } ?: "ملف_المسألة.pdf"
+
+                        viewModel.solverAttachedFile.value = AttachedFile(
+                            fileName = name,
+                            mimeType = mimeType,
+                            base64Data = base64,
+                            sizeBytes = bytes.size.toLong()
+                        )
+                        viewModel.toastMessage.value = "تم إرفاق الملف: $name بنجاح 📄"
+                    }
+                }
+            } catch (e: Exception) {
+                viewModel.toastMessage.value = "تعذر قراءة الملف: ${e.localizedMessage}"
             }
         }
     }
@@ -221,7 +280,7 @@ fun SolveMyQuestionScreen(
                     verticalArrangement = Arrangement.spacedBy(10.dp)
                 ) {
                     Text(
-                        text = "إرفاق صورة السؤال من الكتاب أو ورقة الامتحان (تحليل دقيق دون تخمين):",
+                        text = "إرفاق صورة أو ملف المسألة (تحليل محتوى الملف والصورة بالذكاء الاصطناعي):",
                         style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Bold)
                     )
 
@@ -236,20 +295,17 @@ fun SolveMyQuestionScreen(
                         ) {
                             Icon(imageVector = Icons.Default.PhotoCamera, contentDescription = null)
                             Spacer(modifier = Modifier.width(6.dp))
-                            Text(text = "تصوير / رفع صورة المسألة", fontSize = 12.sp)
+                            Text(text = "صورة المسألة 📷", fontSize = 12.sp)
                         }
 
-                        if (imageBitmap != null) {
-                            Button(
-                                onClick = {
-                                    viewModel.solverImageBitmap.value = null
-                                    selectedImageUri = null
-                                },
-                                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFFEE2E2)),
-                                shape = RoundedCornerShape(10.dp)
-                            ) {
-                                Text(text = "حذف الصورة 🗑️", color = ErrorRed, fontSize = 12.sp)
-                            }
+                        OutlinedButton(
+                            onClick = { documentPickerLauncher.launch("*/*") },
+                            shape = RoundedCornerShape(10.dp),
+                            modifier = Modifier.weight(1f)
+                        ) {
+                            Icon(imageVector = Icons.Default.Description, contentDescription = null)
+                            Spacer(modifier = Modifier.width(6.dp))
+                            Text(text = "ملف PDF / نص 📄", fontSize = 12.sp)
                         }
                     }
 
@@ -262,13 +318,67 @@ fun SolveMyQuestionScreen(
                             Row(
                                 modifier = Modifier.padding(10.dp),
                                 verticalAlignment = Alignment.CenterVertically,
-                                horizontalArrangement = Arrangement.spacedBy(8.dp)
+                                horizontalArrangement = Arrangement.SpaceBetween
                             ) {
-                                Icon(imageVector = Icons.Default.CheckCircle, contentDescription = null, tint = TealAccent)
-                                Text(
-                                    text = "تم إرفاق صورة المسألة بنجاح وهي جاهزة للتحليل الدقيق",
-                                    style = MaterialTheme.typography.bodySmall.copy(color = Color(0xFF134E4A), fontWeight = FontWeight.Bold)
-                                )
+                                Row(
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                                    modifier = Modifier.weight(1f)
+                                ) {
+                                    Icon(imageVector = Icons.Default.Image, contentDescription = null, tint = TealAccent)
+                                    Text(
+                                        text = "تم إرفاق صورة المسألة بنجاح 📷",
+                                        style = MaterialTheme.typography.bodySmall.copy(color = Color(0xFF134E4A), fontWeight = FontWeight.Bold)
+                                    )
+                                }
+                                IconButton(
+                                    onClick = {
+                                        viewModel.solverImageBitmap.value = null
+                                        selectedImageUri = null
+                                    },
+                                    modifier = Modifier.size(32.dp)
+                                ) {
+                                    Icon(imageVector = Icons.Default.Close, contentDescription = "حذف الصورة", tint = ErrorRed)
+                                }
+                            }
+                        }
+                    }
+
+                    if (attachedFile != null) {
+                        Surface(
+                            shape = RoundedCornerShape(10.dp),
+                            color = Color(0xFFEFF6FF),
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Row(
+                                modifier = Modifier.padding(10.dp),
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.SpaceBetween
+                            ) {
+                                Row(
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                                    modifier = Modifier.weight(1f)
+                                ) {
+                                    Icon(imageVector = Icons.Default.Description, contentDescription = null, tint = NavyPrimary)
+                                    Column {
+                                        Text(
+                                            text = attachedFile!!.fileName,
+                                            style = MaterialTheme.typography.bodySmall.copy(color = NavyPrimary, fontWeight = FontWeight.Bold),
+                                            maxLines = 1
+                                        )
+                                        Text(
+                                            text = "${attachedFile!!.sizeBytes / 1024} كيلوبايت • جاهز للتحليل بالذكاء الاصطناعي",
+                                            style = MaterialTheme.typography.labelSmall.copy(color = Color(0xFF3B82F6), fontSize = 10.sp)
+                                        )
+                                    }
+                                }
+                                IconButton(
+                                    onClick = { viewModel.solverAttachedFile.value = null },
+                                    modifier = Modifier.size(32.dp)
+                                ) {
+                                    Icon(imageVector = Icons.Default.Close, contentDescription = "حذف الملف", tint = ErrorRed)
+                                }
                             }
                         }
                     }
@@ -336,7 +446,7 @@ fun SolveMyQuestionScreen(
                             ) {
                                 Icon(Icons.Default.Warning, contentDescription = null, tint = ErrorRed)
                                 Text(
-                                    text = "تنبيه: الصورة غير واضحة لمنع التخمين الخاطئ",
+                                    text = if (sol.confidence == "error") "تنبيه: تعذر إتمام الحل حالياً" else "تنبيه: الصورة غير واضحة لمنع التخمين الخاطئ",
                                     style = MaterialTheme.typography.titleMedium.copy(
                                         color = ErrorRed,
                                         fontWeight = FontWeight.Bold
@@ -350,25 +460,39 @@ fun SolveMyQuestionScreen(
                                     lineHeight = 22.sp
                                 )
                             )
-                            Button(
-                                onClick = { photoPickerLauncher.launch("image/*") },
-                                colors = ButtonDefaults.buttonColors(containerColor = ErrorRed),
-                                shape = RoundedCornerShape(10.dp)
-                            ) {
-                                Icon(Icons.Default.PhotoCamera, contentDescription = null)
-                                Spacer(modifier = Modifier.width(6.dp))
-                                Text("إعادة التقاط أو اختيار صورة أوضح")
+                            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                Button(
+                                    onClick = { viewModel.solveQuestion() },
+                                    colors = ButtonDefaults.buttonColors(containerColor = NavyPrimary),
+                                    shape = RoundedCornerShape(10.dp)
+                                ) {
+                                    Icon(Icons.Default.Refresh, contentDescription = null)
+                                    Spacer(modifier = Modifier.width(6.dp))
+                                    Text("إعادة المحاولة 🔄")
+                                }
+
+                                OutlinedButton(
+                                    onClick = { photoPickerLauncher.launch("image/*") },
+                                    shape = RoundedCornerShape(10.dp)
+                                ) {
+                                    Icon(Icons.Default.PhotoCamera, contentDescription = null)
+                                    Spacer(modifier = Modifier.width(6.dp))
+                                    Text("صورة أوضح 📷")
+                                }
                             }
                         }
                     }
                 }
-            } else {
-                // Case B: Fully Clear Structured Solution
+                // Case B: Clear Structured Solution in Yemeni Blackboard Format
                 item {
+                    val questionItems = sol.resolvedItems()
+                    val isMultiple = questionItems.size > 1
+
                     Card(
                         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
                         shape = RoundedCornerShape(18.dp),
-                        elevation = CardDefaults.cardElevation(defaultElevation = 3.dp),
+                        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
+                        border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f)),
                         modifier = Modifier
                             .fillMaxWidth()
                             .testTag("solution_result_card")
@@ -377,9 +501,9 @@ fun SolveMyQuestionScreen(
                             modifier = Modifier
                                 .padding(18.dp)
                                 .fillMaxWidth(),
-                            verticalArrangement = Arrangement.spacedBy(14.dp)
+                            verticalArrangement = Arrangement.spacedBy(16.dp)
                         ) {
-                            // Top Bar of Card
+                            // Header bar
                             Row(
                                 modifier = Modifier.fillMaxWidth(),
                                 horizontalArrangement = Arrangement.SpaceBetween,
@@ -387,204 +511,370 @@ fun SolveMyQuestionScreen(
                             ) {
                                 Surface(
                                     shape = RoundedCornerShape(8.dp),
-                                    color = Color(0xFFECFDF5)
+                                    color = Color(0xFFF1F5F9)
                                 ) {
                                     Row(
                                         modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp),
                                         verticalAlignment = Alignment.CenterVertically,
                                         horizontalArrangement = Arrangement.spacedBy(6.dp)
                                     ) {
-                                        Text(text = "🛡️", fontSize = 16.sp)
+                                        Text(text = "✍️", fontSize = 16.sp)
                                         Text(
-                                            text = "الحل الوزاري المعتمد (مُدقق 100%)",
+                                            text = if (isMultiple) "إجابات الأسئلة (${questionItems.size} أسئلة)" else "نتيجة الحل (المنهج اليمني)",
                                             style = MaterialTheme.typography.titleSmall.copy(
                                                 fontWeight = FontWeight.Bold,
-                                                color = TealAccent
+                                                color = NavyPrimary
                                             )
                                         )
                                     }
                                 }
 
-                                IconButton(onClick = {
-                                    copyToClipboard(context, solutionResult ?: "", "الحل الكامل")
-                                }) {
-                                    Icon(Icons.Default.ContentCopy, contentDescription = "نسخ", tint = MaterialTheme.colorScheme.onSurfaceVariant)
+                                FilledTonalButton(
+                                    onClick = {
+                                        val fullSolText = sol.toFormattedEducationalText()
+                                        copyToClipboard(context, fullSolText, "الحل الكامل")
+                                    },
+                                    shape = RoundedCornerShape(8.dp),
+                                    contentPadding = PaddingValues(horizontal = 10.dp, vertical = 4.dp),
+                                    modifier = Modifier
+                                        .height(34.dp)
+                                        .testTag("copy_solution_button")
+                                ) {
+                                    Icon(Icons.Default.ContentCopy, contentDescription = "نسخ", modifier = Modifier.size(16.dp))
+                                    Spacer(modifier = Modifier.width(4.dp))
+                                    Text(text = "نسخ الإجابة", fontSize = 12.sp)
                                 }
                             }
 
-                            // 1. Understanding
-                            if (sol.questionUnderstanding.isNotBlank()) {
-                                SolutionSection(title = "📘 قراءة وفهم المسألة:", content = sol.questionUnderstanding)
-                            }
+                            HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f))
 
-                            // 2. Givens
-                            if (sol.givens.isNotEmpty()) {
-                                Text(
-                                    text = "📋 المعطيات:",
-                                    style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Bold, color = NavyPrimary)
-                                )
-                                sol.givens.forEach { g ->
-                                    Surface(
-                                        shape = RoundedCornerShape(8.dp),
-                                        color = Color(0xFFEFF6FF),
-                                        modifier = Modifier.fillMaxWidth()
+                            // Each question rendered independently
+                            questionItems.forEachIndexed { index, item ->
+                                val isExpanded = expandedExplanations.contains(index)
+                                val qNumLabel = if (isMultiple) "السؤال ${index + 1}" else (item.questionTitle.takeIf { it.isNotBlank() && it != "السؤال" } ?: "")
+
+                                Card(
+                                    colors = CardDefaults.cardColors(containerColor = Color(0xFFF8FAFC)),
+                                    shape = RoundedCornerShape(14.dp),
+                                    border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFFE2E8F0)),
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .testTag("question_item_$index")
+                                ) {
+                                    Column(
+                                        modifier = Modifier
+                                            .padding(14.dp)
+                                            .fillMaxWidth(),
+                                        verticalArrangement = Arrangement.spacedBy(10.dp)
                                     ) {
-                                        Text(
-                                            text = "• $g",
-                                            style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.SemiBold, color = Color(0xFF1E3A8A)),
-                                            modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp)
-                                        )
-                                    }
-                                }
-                            }
+                                        if (qNumLabel.isNotBlank()) {
+                                            Surface(
+                                                shape = RoundedCornerShape(6.dp),
+                                                color = NavyPrimary
+                                            ) {
+                                                Text(
+                                                    text = qNumLabel,
+                                                    style = MaterialTheme.typography.labelMedium.copy(
+                                                        color = Color.White,
+                                                        fontWeight = FontWeight.Bold
+                                                    ),
+                                                    modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
+                                                )
+                                            }
+                                        }
 
-                            // 3. Required
-                            if (sol.required.isNotBlank()) {
-                                SolutionSection(title = "🎯 المطلوب:", content = sol.required)
-                            }
-
-                            // 4. Laws
-                            if (sol.laws.isNotEmpty()) {
-                                Text(
-                                    text = "📜 القانون المعتمد في المنهج اليمني:",
-                                    style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Bold, color = NavyPrimary)
-                                )
-                                sol.laws.forEach { law ->
-                                    Surface(
-                                        shape = RoundedCornerShape(8.dp),
-                                        color = Color(0xFFFEF3C7),
-                                        modifier = Modifier.fillMaxWidth()
-                                    ) {
-                                        Text(
-                                            text = law,
-                                            style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Bold, color = Color(0xFF78350F)),
-                                            modifier = Modifier.padding(10.dp)
-                                        )
-                                    }
-                                }
-                            }
-
-                            // 5. Substitution
-                            if (sol.substitutionSteps.isNotEmpty()) {
-                                Text(
-                                    text = "✍️ التعويض بالأرقام:",
-                                    style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Bold, color = NavyPrimary)
-                                )
-                                sol.substitutionSteps.forEach { step ->
-                                    Text(text = "• $step", style = MaterialTheme.typography.bodyMedium)
-                                }
-                            }
-
-                            // 6. Calculation Steps
-                            if (sol.calculationSteps.isNotEmpty()) {
-                                Text(
-                                    text = "🔢 الحساب والتبسيط خطوة بخطوة:",
-                                    style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Bold, color = NavyPrimary)
-                                )
-                                sol.calculationSteps.forEach { calc ->
-                                    Text(
-                                        text = calc,
-                                        style = MaterialTheme.typography.bodyMedium.copy(lineHeight = 22.sp)
-                                    )
-                                }
-                            }
-
-                            // 7. Unit Check
-                            if (!sol.unitCheck.isNullOrBlank()) {
-                                SolutionSection(title = "📏 فحص وتوحيد الوحدات:", content = sol.unitCheck)
-                            }
-
-                            // 8. Final Answer Box
-                            Surface(
-                                shape = RoundedCornerShape(12.dp),
-                                color = CardTeal,
-                                border = androidx.compose.foundation.BorderStroke(1.5.dp, TealAccent),
-                                modifier = Modifier.fillMaxWidth()
-                            ) {
-                                Column(modifier = Modifier.padding(14.dp)) {
-                                    Text(
-                                        text = "🏆 الإجابة النهائية:",
-                                        style = MaterialTheme.typography.labelMedium.copy(color = Color(0xFF0F766E), fontWeight = FontWeight.Bold)
-                                    )
-                                    Spacer(modifier = Modifier.height(4.dp))
-                                    Text(
-                                        text = sol.finalAnswer,
-                                        style = MaterialTheme.typography.titleMedium.copy(
-                                            fontWeight = FontWeight.ExtraBold,
-                                            color = Color(0xFF115E59),
-                                            fontSize = 16.sp
-                                        )
-                                    )
-                                    if (!sol.multipleChoiceAnswer.isNullOrBlank()) {
-                                        Spacer(modifier = Modifier.height(6.dp))
-                                        Surface(
-                                            shape = RoundedCornerShape(6.dp),
-                                            color = Color.White
-                                        ) {
+                                        if (item.questionText.isNotBlank()) {
                                             Text(
-                                                text = "الخيار الصحيح في السؤال: ${sol.multipleChoiceAnswer}",
-                                                style = MaterialTheme.typography.labelMedium.copy(
-                                                    fontWeight = FontWeight.Bold,
-                                                    color = Color(0xFF0F766E)
-                                                ),
-                                                modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
+                                                text = item.questionText,
+                                                style = MaterialTheme.typography.bodyMedium.copy(
+                                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                                    lineHeight = 22.sp
+                                                )
                                             )
+                                        }
+
+                                        // 1. Result summary based on question type
+                                        when (item.questionType) {
+                                            "MULTIPLE_CHOICE" -> {
+                                                val optionLabel = MathFormatter.formatOptionLabel(item.selectedOptionLabel)
+                                                val optionText = MathFormatter.cleanItem(item.selectedOptionText ?: item.finalAnswer)
+
+                                                Surface(
+                                                    shape = RoundedCornerShape(12.dp),
+                                                    color = Color(0xFFF0FDF4),
+                                                    border = androidx.compose.foundation.BorderStroke(1.5.dp, Color(0xFF16A34A)),
+                                                    modifier = Modifier.fillMaxWidth()
+                                                ) {
+                                                    Column(
+                                                        modifier = Modifier.padding(12.dp),
+                                                        verticalArrangement = Arrangement.spacedBy(4.dp)
+                                                    ) {
+                                                        if (optionLabel.isNotBlank()) {
+                                                            Text(
+                                                                text = "الإجابة الصحيحة: $optionLabel",
+                                                                style = MaterialTheme.typography.titleMedium.copy(
+                                                                    fontWeight = FontWeight.Bold,
+                                                                    color = Color(0xFF15803D),
+                                                                    fontSize = 16.sp
+                                                                )
+                                                            )
+                                                        }
+                                                        if (optionText.isNotBlank()) {
+                                                            Text(
+                                                                text = "الإجابة: $optionText",
+                                                                style = MaterialTheme.typography.bodyLarge.copy(
+                                                                    fontWeight = FontWeight.SemiBold,
+                                                                    color = Color(0xFF166534),
+                                                                    fontSize = 15.sp
+                                                                )
+                                                            )
+                                                        }
+                                                    }
+                                                }
+                                            }
+
+                                            "TRUE_FALSE" -> {
+                                                val isCorrect = item.isTrue == true
+                                                val isWrong = item.isTrue == false
+
+                                                Surface(
+                                                    shape = RoundedCornerShape(12.dp),
+                                                    color = if (isCorrect) Color(0xFFF0FDF4) else Color(0xFFFEF2F2),
+                                                    border = androidx.compose.foundation.BorderStroke(
+                                                        1.5.dp,
+                                                        if (isCorrect) Color(0xFF16A34A) else Color(0xFFDC2626)
+                                                    ),
+                                                    modifier = Modifier.fillMaxWidth()
+                                                ) {
+                                                    Column(
+                                                        modifier = Modifier.padding(12.dp),
+                                                        verticalArrangement = Arrangement.spacedBy(4.dp)
+                                                    ) {
+                                                        Text(
+                                                            text = when {
+                                                                isCorrect -> "الإجابة: صح ✅"
+                                                                isWrong -> "الإجابة: خطأ ❌"
+                                                                else -> "الإجابة: ${MathFormatter.cleanItem(item.finalAnswer)}"
+                                                            },
+                                                            style = MaterialTheme.typography.titleMedium.copy(
+                                                                fontWeight = FontWeight.Bold,
+                                                                color = if (isCorrect) Color(0xFF15803D) else Color(0xFFB91C1C),
+                                                                fontSize = 16.sp
+                                                            )
+                                                        )
+                                                        if (isWrong && !item.correction.isNullOrBlank()) {
+                                                            Spacer(modifier = Modifier.height(2.dp))
+                                                            Text(
+                                                                text = "التصحيح: ${MathFormatter.cleanMathText(item.correction)}",
+                                                                style = MaterialTheme.typography.bodyMedium.copy(
+                                                                    color = Color(0xFF991B1B),
+                                                                    fontWeight = FontWeight.Medium,
+                                                                    lineHeight = 22.sp
+                                                                )
+                                                            )
+                                                        }
+                                                    }
+                                                }
+                                            }
+
+                                            else -> { // CALCULATION or default
+                                                val cleanAns = MathFormatter.cleanItem(item.finalAnswer)
+                                                Surface(
+                                                    shape = RoundedCornerShape(12.dp),
+                                                    color = Color(0xFFF0FDF4),
+                                                    border = androidx.compose.foundation.BorderStroke(1.5.dp, Color(0xFF16A34A)),
+                                                    modifier = Modifier.fillMaxWidth()
+                                                ) {
+                                                    Column(
+                                                        modifier = Modifier.padding(12.dp),
+                                                        verticalArrangement = Arrangement.spacedBy(2.dp)
+                                                    ) {
+                                                        Text(
+                                                            text = "الإجابة النهائية: $cleanAns",
+                                                            style = MaterialTheme.typography.titleMedium.copy(
+                                                                fontWeight = FontWeight.Bold,
+                                                                color = Color(0xFF15803D),
+                                                                fontSize = 16.sp
+                                                            )
+                                                        )
+                                                    }
+                                                }
+                                            }
+                                        }
+
+                                        // 2. Optional "اشرح الحل" button
+                                        val cleanedGivens = MathFormatter.cleanItemList(item.givens)
+                                        val cleanedLaws = MathFormatter.cleanItemList(item.laws)
+                                        val cleanedSubst = MathFormatter.cleanItemList(item.substitutionSteps)
+                                        val cleanedCalcs = MathFormatter.cleanItemList(item.calculationSteps)
+                                        val hasSteps = cleanedGivens.isNotEmpty() || cleanedLaws.isNotEmpty() ||
+                                                cleanedSubst.isNotEmpty() || cleanedCalcs.isNotEmpty()
+
+                                        if (hasSteps) {
+                                            OutlinedButton(
+                                                onClick = {
+                                                    expandedExplanations = if (isExpanded) {
+                                                        expandedExplanations - index
+                                                    } else {
+                                                        expandedExplanations + index
+                                                    }
+                                                },
+                                                shape = RoundedCornerShape(8.dp),
+                                                contentPadding = PaddingValues(horizontal = 12.dp, vertical = 6.dp),
+                                                modifier = Modifier
+                                                    .align(Alignment.Start)
+                                                    .testTag("toggle_explain_button_$index")
+                                            ) {
+                                                Icon(
+                                                    imageVector = if (isExpanded) Icons.Default.ExpandLess else Icons.Default.Lightbulb,
+                                                    contentDescription = null,
+                                                    modifier = Modifier.size(16.dp),
+                                                    tint = AmberSecondary
+                                                )
+                                                Spacer(modifier = Modifier.width(6.dp))
+                                                Text(
+                                                    text = if (isExpanded) "إخفاء الشرح ▲" else "اشرح الحل 💡",
+                                                    fontSize = 13.sp,
+                                                    fontWeight = FontWeight.Bold,
+                                                    color = NavyPrimary
+                                                )
+                                            }
+
+                                            // 3. Step-by-Step Whiteboard Explanation
+                                            AnimatedVisibility(visible = isExpanded) {
+                                                Column(
+                                                    modifier = Modifier
+                                                        .fillMaxWidth()
+                                                        .background(Color.White, RoundedCornerShape(10.dp))
+                                                        .padding(12.dp),
+                                                    verticalArrangement = Arrangement.spacedBy(10.dp)
+                                                ) {
+                                                    if (cleanedGivens.isNotEmpty()) {
+                                                        Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                                                            Text(
+                                                                text = "المعطيات:",
+                                                                style = MaterialTheme.typography.labelLarge.copy(
+                                                                    fontWeight = FontWeight.Bold,
+                                                                    color = NavyPrimary
+                                                                )
+                                                            )
+                                                            cleanedGivens.forEach { g ->
+                                                                Text(
+                                                                    text = g,
+                                                                    style = MaterialTheme.typography.bodyMedium.copy(
+                                                                        color = MaterialTheme.colorScheme.onSurface,
+                                                                        lineHeight = 22.sp
+                                                                    )
+                                                                )
+                                                            }
+                                                        }
+                                                    }
+
+                                                    if (cleanedLaws.isNotEmpty()) {
+                                                        Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                                                            Text(
+                                                                text = "القانون:",
+                                                                style = MaterialTheme.typography.labelLarge.copy(
+                                                                    fontWeight = FontWeight.Bold,
+                                                                    color = NavyPrimary
+                                                                )
+                                                            )
+                                                            cleanedLaws.forEach { l ->
+                                                                Text(
+                                                                    text = l,
+                                                                    style = MaterialTheme.typography.bodyMedium.copy(
+                                                                        color = Color(0xFF0F766E),
+                                                                        fontWeight = FontWeight.SemiBold,
+                                                                        lineHeight = 22.sp
+                                                                    )
+                                                                )
+                                                            }
+                                                        }
+                                                    }
+
+                                                    if (cleanedSubst.isNotEmpty()) {
+                                                        Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                                                            Text(
+                                                                text = "التعويض:",
+                                                                style = MaterialTheme.typography.labelLarge.copy(
+                                                                    fontWeight = FontWeight.Bold,
+                                                                    color = NavyPrimary
+                                                                )
+                                                            )
+                                                            cleanedSubst.forEach { s ->
+                                                                Text(
+                                                                    text = s,
+                                                                    style = MaterialTheme.typography.bodyMedium.copy(
+                                                                        color = MaterialTheme.colorScheme.onSurface,
+                                                                        lineHeight = 22.sp
+                                                                    )
+                                                                )
+                                                            }
+                                                        }
+                                                    }
+
+                                                    if (cleanedCalcs.isNotEmpty()) {
+                                                        Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                                                            Text(
+                                                                text = "الحل:",
+                                                                style = MaterialTheme.typography.labelLarge.copy(
+                                                                    fontWeight = FontWeight.Bold,
+                                                                    color = NavyPrimary
+                                                                )
+                                                            )
+                                                            cleanedCalcs.forEach { c ->
+                                                                Text(
+                                                                    text = c,
+                                                                    style = MaterialTheme.typography.bodyMedium.copy(
+                                                                        color = MaterialTheme.colorScheme.onSurface,
+                                                                        lineHeight = 22.sp
+                                                                    )
+                                                                )
+                                                            }
+                                                        }
+                                                    }
+
+                                                    if (item.finalAnswer.isNotBlank()) {
+                                                        Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                                                            Text(
+                                                                text = "الإجابة:",
+                                                                style = MaterialTheme.typography.labelLarge.copy(
+                                                                    fontWeight = FontWeight.Bold,
+                                                                    color = Color(0xFF15803D)
+                                                                )
+                                                            )
+                                                            Text(
+                                                                text = MathFormatter.cleanItem(item.finalAnswer),
+                                                                style = MaterialTheme.typography.bodyLarge.copy(
+                                                                    fontWeight = FontWeight.Bold,
+                                                                    color = Color(0xFF166534)
+                                                                )
+                                                            )
+                                                        }
+                                                    }
+                                                }
+                                            }
                                         }
                                     }
                                 }
                             }
 
-                            // 9. Verification & Safety Shield
-                            Surface(
-                                shape = RoundedCornerShape(12.dp),
-                                color = Color(0xFFF0FDF4),
-                                border = androidx.compose.foundation.BorderStroke(1.dp, SuccessGreen.copy(alpha = 0.5f)),
-                                modifier = Modifier.fillMaxWidth()
-                            ) {
-                                Column(modifier = Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                                    Row(
-                                        verticalAlignment = Alignment.CenterVertically,
-                                        horizontalArrangement = Arrangement.spacedBy(6.dp)
-                                    ) {
-                                        Text(text = "🛡️", fontSize = 16.sp)
-                                        Text(
-                                            text = "مرحلة التدقيق المستقل (VERIFY_SOLUTION):",
-                                            style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Bold, color = SuccessGreen)
-                                        )
-                                    }
-                                    Text(
-                                        text = sol.verification.verificationDetails,
-                                        style = MaterialTheme.typography.bodySmall.copy(color = Color(0xFF166534))
-                                    )
-                                    sol.verification.checksList.forEach { c ->
-                                        Text(text = "  $c", style = MaterialTheme.typography.bodySmall.copy(color = Color(0xFF14532D)))
-                                    }
-                                    if (!sol.verification.commonMistakesAvoided.isNullOrBlank()) {
-                                        Text(
-                                            text = "⚠️ تجنب الأخطاء الشائعة: ${sol.verification.commonMistakesAvoided}",
-                                            style = MaterialTheme.typography.bodySmall.copy(color = Color(0xFF854D0E), fontWeight = FontWeight.SemiBold)
-                                        )
-                                    }
-                                }
-                            }
+                            HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f))
 
-                            HorizontalDivider(color = MaterialTheme.colorScheme.outline.copy(alpha = 0.2f))
-
-                            // Mandatory Buttons Requested by User:
-                            // 1. «تحقق من الحل»
-                            // 2. «اشرح لي بطريقة أسهل»
+                            // Action Buttons: «تحقق من الحل» and «اشرح لي بطريقة أسهل»
                             Row(
                                 modifier = Modifier.fillMaxWidth(),
                                 horizontalArrangement = Arrangement.spacedBy(10.dp)
                             ) {
-                                Button(
+                                OutlinedButton(
                                     onClick = {
                                         viewModel.verifyCurrentSolution()
                                         showVerifyDialog = true
                                     },
-                                    colors = ButtonDefaults.buttonColors(containerColor = NavyPrimary),
                                     shape = RoundedCornerShape(10.dp),
-                                    modifier = Modifier.weight(1f)
+                                    modifier = Modifier
+                                        .weight(1f)
+                                        .testTag("verify_solution_button")
                                 ) {
                                     Icon(Icons.Default.FactCheck, contentDescription = null, modifier = Modifier.size(18.dp))
                                     Spacer(modifier = Modifier.width(6.dp))
@@ -597,7 +887,9 @@ fun SolveMyQuestionScreen(
                                     },
                                     colors = ButtonDefaults.buttonColors(containerColor = AmberSecondary),
                                     shape = RoundedCornerShape(10.dp),
-                                    modifier = Modifier.weight(1f)
+                                    modifier = Modifier
+                                        .weight(1f)
+                                        .testTag("easier_explanation_button")
                                 ) {
                                     Icon(Icons.Default.AutoFixHigh, contentDescription = null, modifier = Modifier.size(18.dp))
                                     Spacer(modifier = Modifier.width(6.dp))

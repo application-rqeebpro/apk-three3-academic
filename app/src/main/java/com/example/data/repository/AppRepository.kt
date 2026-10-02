@@ -60,23 +60,16 @@ class AppRepository(private val db: AppDatabase) {
         val created = newUser.copy(id = id)
         _currentUser.value = created
 
-        // Send welcome notification
+        // Send official welcome notification
         db.notificationDao().insertNotification(
             NotificationEntity(
-                title = "مرحباً بك يا ${created.fullName} في الأكاديمية! 🎉",
-                message = "تم إنشاء حسابك بنجاح. يمكنك استكشاف المواد المجانية أو تفعيل الاشتراك للوصول الكامل لجميع الميزات.",
+                title = "مرحباً بك يا ${created.fullName} في منصة رقيب للتعليم الثانوي! 🇾🇪",
+                message = "تم إنشاء حسابك بنجاح. لتفعيل حسابك والوصول الكامل لجميع الدروس والمسائل، يرجى إدخال كود التفعيل أو تقديم طلب اشتراك رسمي عبر المحافظ المعتمدة.",
                 targetType = "ALL"
             )
         )
 
         Result.success(created)
-    }
-
-    suspend fun autoLoginDemoStudent() = withContext(Dispatchers.IO) {
-        val student = db.userDao().getUserByPhoneOrEmail("770000000")
-        if (student != null) {
-            _currentUser.value = student
-        }
     }
 
     fun logout() {
@@ -496,6 +489,30 @@ class AppRepository(private val db: AppDatabase) {
 
     suspend fun deleteLesson(lesson: LessonEntity) = withContext(Dispatchers.IO) {
         db.curriculumDao().deleteLesson(lesson)
+    }
+
+    suspend fun addUnit(unit: UnitEntity) = withContext(Dispatchers.IO) {
+        db.curriculumDao().insertUnit(unit)
+    }
+
+    suspend fun updateUnit(unit: UnitEntity) = withContext(Dispatchers.IO) {
+        db.curriculumDao().updateUnit(unit)
+    }
+
+    suspend fun deleteUnit(unit: UnitEntity) = withContext(Dispatchers.IO) {
+        db.curriculumDao().deleteUnit(unit)
+    }
+
+    suspend fun addQuestion(question: QuestionEntity) = withContext(Dispatchers.IO) {
+        db.questionDao().insertQuestion(question)
+    }
+
+    suspend fun deleteQuestion(question: QuestionEntity) = withContext(Dispatchers.IO) {
+        db.questionDao().deleteQuestion(question)
+    }
+
+    suspend fun addExam(exam: ExamEntity) = withContext(Dispatchers.IO) {
+        db.examDao().insertExam(exam)
     }
 
     // ---------------------------------------------------------

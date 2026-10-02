@@ -4,6 +4,7 @@ import com.example.data.remote.GeminiRepository
 import com.example.data.solver.EducationalSolution
 import com.example.data.solver.EducationalSolverEngine
 import com.example.data.solver.ProblemVerification
+import com.example.data.solver.toFormattedEducationalText
 import org.junit.Assert.*
 import org.junit.Test
 
@@ -220,4 +221,146 @@ class EducationalSolverTest {
         assertTrue(report.checksList.isNotEmpty())
         assertTrue(report.verificationDetails.contains("تم فحص وتدقيق"))
     }
+
+    // -------------------------------------------------------------
+    // 11. PARSER TESTS (فحص استجابة الذكاء الاصطناعي وتجنب الإجابة الواحدة المتكررة)
+    // -------------------------------------------------------------
+    @Test
+    fun testEducationalSolutionParserWithJson() {
+        val json = """
+        {
+          "subject": "الرياضيات",
+          "question_understanding": "حل معادلة تفاضلية من الرتبة الأولى",
+          "givens": ["دص/دس = 2س", "ص(0) = 1"],
+          "required": "إيجاد الدالة ص(س)",
+          "laws": ["التكامل المباشر لكلا الطرفين"],
+          "substitution_steps": ["ص = ∫ 2س دس"],
+          "calculation_steps": ["ص = س² + جـ", "بالتعويض: 1 = 0 + جـ => جـ = 1"],
+          "final_answer": "ص = س² + 1",
+          "easier_explanation": "التكامل يعيد المشتقة إلى أصلها خطوة بخطوة"
+        }
+        """.trimIndent()
+
+        val parsed = com.example.data.solver.EducationalSolutionParser.parse(json, "الرياضيات")
+        assertEquals("الرياضيات", parsed.subject)
+        assertEquals("ص = س² + 1", parsed.finalAnswer)
+        assertEquals(2, parsed.givens.size)
+        assertEquals(2, parsed.calculationSteps.size)
+        assertTrue(parsed.isImageClear)
+    }
+
+    @Test
+    fun testEducationalSolutionParserWithMarkdown() {
+        val markdown = """
+        📘 فهم المسألة:
+        حساب سرعة جسيم يتحرك بتسارع ثابت
+
+        📋 المعطيات:
+        • ع₀ = 5 م/ث
+        • ت = 2 م/ث²
+        • ز = 3 ثواني
+
+        🎯 المطلوب:
+        حساب السرعة النهائية ع
+
+        📜 القانون:
+        • ع = ع₀ + ت × ز
+
+        ✍️ التعويض:
+        • ع = 5 + 2 × 3
+
+        🔢 الحساب:
+        • 2 × 3 = 6
+        • 5 + 6 = 11
+
+        📏 الوحدة:
+        متر / ثانية
+
+        🏆 الإجابة:
+        11 م/ث
+        """.trimIndent()
+
+        val parsed = com.example.data.solver.EducationalSolutionParser.parse(markdown, "الفيزياء")
+        assertEquals("11 م/ث", parsed.finalAnswer)
+        assertEquals(3, parsed.givens.size)
+        assertTrue(parsed.calculationSteps.isNotEmpty())
+    }
+
+    @Test
+    fun testMathFormatterCleansLaTeXMarkdownAndChatter() {
+        val raw = """
+        **المعطيات:**
+        ع = [4 ، $60^\circ$]
+        **القانون المستخدم:**
+        $\sqrt{ع} = [\sqrt{ر} ، \theta \div 2]$
+        **التعويض:**
+        $\sqrt{ع} = [\sqrt{4} ، 60^\circ \div 2]$
+        **الحساب:**
+        الجذر للطول: $\sqrt{4} = 2$
+        القسمة للزاوية: $60^\circ \div 2 = 30^\circ$
+        إذن: $\sqrt{ع} = [2 ، 30^\circ]$
+        **الإجابة:**
+        $[2 ، 30^\circ]$
+        هل وضحت الصورة؟
+        """.trimIndent()
+
+        val cleaned = com.example.data.solver.MathFormatter.cleanMathText(raw)
+
+        // Verify no Markdown **
+        assertFalse(cleaned.contains("**"))
+        // Verify no LaTeX $
+        assertFalse(cleaned.contains("$"))
+        // Verify no \circ
+        assertFalse(cleaned.contains("\\circ"))
+        // Verify no \sqrt
+        assertFalse(cleaned.contains("\\sqrt"))
+        // Verify no \theta
+        assertFalse(cleaned.contains("\\theta"))
+        // Verify proper angle symbol °
+        assertTrue(cleaned.contains("60°"))
+        assertTrue(cleaned.contains("30°"))
+        // Verify proper square root symbol √
+        assertTrue(cleaned.contains("√4 = 2"))
+        // Verify chatter removed
+        assertFalse(cleaned.contains("هل وضحت الصورة"))
+        // Verify redundant headings cleaned
+        assertFalse(cleaned.contains("الجذر للطول"))
+        assertFalse(cleaned.contains("القسمة للزاوية"))
+    }
+
+    @Test
+    fun testUserComplexNumberExactWhiteboardExample() {
+        val solution = EducationalSolution(
+            isImageClear = true,
+            subject = "الرياضيات",
+            givens = listOf("ع = [4 ، 60°]"),
+            laws = listOf("ع = [ر ، هـ] -> √ع = [√ر ، هـ ÷ 2]"),
+            substitutionSteps = listOf("√ع = [√4 ، 60° ÷ 2]"),
+            calculationSteps = listOf(
+                "طول الجذر:\n√4 = 2",
+                "الزاوية:\n60° ÷ 2 = 30°",
+                "إذن:\n√ع = [2 ، 30°]"
+            ),
+            finalAnswer = "[2 ، 30°]"
+        )
+
+        val formattedText = solution.toFormattedEducationalText()
+
+        // Must start with المعطيات
+        assertTrue(formattedText.contains("المعطيات:\nع = [4 ، 60°]"))
+        // Must contain القانون
+        assertTrue(formattedText.contains("القانون:"))
+        // Must contain التعويض
+        assertTrue(formattedText.contains("التعويض:"))
+        // Must contain الحساب
+        assertTrue(formattedText.contains("الحساب:"))
+        // Must contain الإجابة
+        assertTrue(formattedText.contains("الإجابة:\n[2 ، 30°]"))
+        // Must NOT contain Markdown ** or raw LaTeX
+        assertFalse(formattedText.contains("**"))
+        assertFalse(formattedText.contains("$"))
+        assertFalse(formattedText.contains("\\circ"))
+        assertFalse(formattedText.contains("\\sqrt"))
+    }
 }
+

@@ -1,36 +1,8 @@
 <?xml version="1.0" encoding="utf-8"?>
-<vector xmlns:android="http://schemas.android.com/apk/res/android"
-    android:width="108dp"
-    android:height="108dp"
-    android:viewportWidth="108"
-    android:viewportHeight="108">
-    <!-- Graduation Cap / Mortarboard -->
-    <path
-        android:fillColor="#FBBF24"
-        android:pathData="M54,26 L22,39 L54,52 L86,39 Z" />
-    <path
-        android:fillColor="#F59E0B"
-        android:pathData="M34,44.5 L34,58 C34,65 54,69 54,69 C54,69 74,65 74,58 L74,44.5 L54,52 Z" />
-    <!-- Tassel -->
-    <path
-        android:strokeColor="#FFFFFF"
-        android:strokeWidth="2"
-        android:pathData="M78,41 L82,56" />
-    <path
-        android:fillColor="#FDE68A"
-        android:pathData="M80,56 C80,57.5 84,57.5 84,56 L83.5,64 C83.5,65 80.5,65 80.5,64 Z" />
-    <!-- Open Book -->
-    <path
-        android:fillColor="#FFFFFF"
-        android:pathData="M24,71 C34,68 47,68 53,73 L53,88 C47,84 34,84 24,87 Z" />
-    <path
-        android:fillColor="#E2E8F0"
-        android:pathData="M84,71 C74,68 61,68 55,73 L55,88 C61,84 74,84 84,87 Z" />
-    <path
-        android:fillColor="#38BDF8"
-        android:pathData="M52,73 L56,73 L56,88 L52,88 Z" />
-    <!-- Star of Excellence -->
-    <path
-        android:fillColor="#FDE047"
-        android:pathData="M54,16 L56,21 L61,21 L57,24 L59,29 L54,26 L49,29 L51,24 L47,21 L52,21 Z" />
-</vector>
+<layer-list xmlns:android="http://schemas.android.com/apk/res/android">
+    <item
+        android:width="72dp"
+        android:height="72dp"
+        android:drawable="@drawable/ic_raqeeb_logo"
+        android:gravity="center" />
+</layer-list>

@@ -77,16 +77,12 @@ fun AcademyTopBar(
                 }
             } else {
                 Box(
-                    modifier = Modifier
-                        .padding(start = 12.dp, end = 4.dp)
-                        .size(36.dp)
-                        .clip(CircleShape)
-                        .background(MaterialTheme.colorScheme.primaryContainer),
+                    modifier = Modifier.padding(start = 8.dp, end = 4.dp),
                     contentAlignment = Alignment.Center
                 ) {
-                    Text(
-                        text = "🇾🇪",
-                        fontSize = 18.sp
+                    RaqeebLogoEmblem(
+                        size = 36.dp,
+                        showBackground = true
                     )
                 }
             }

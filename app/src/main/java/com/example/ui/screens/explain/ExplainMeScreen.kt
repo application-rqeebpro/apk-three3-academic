@@ -324,7 +324,7 @@ fun ExplainMeScreen(
                             }
 
                             IconButton(onClick = {
-                                copyToClipboard(context, explanationResult ?: "", "الشرح المبسط")
+                                copyToClipboard(context, com.example.data.solver.MathFormatter.cleanMathText(explanationResult ?: ""), "الشرح المبسط")
                             }) {
                                 Icon(Icons.Default.ContentCopy, contentDescription = "نسخ", tint = Color(0xFF78350F))
                             }
@@ -333,7 +333,7 @@ fun ExplainMeScreen(
                         HorizontalDivider(color = AmberSecondary.copy(alpha = 0.3f))
 
                         Text(
-                            text = explanationResult ?: "",
+                            text = com.example.data.solver.MathFormatter.cleanMathText(explanationResult ?: ""),
                             style = MaterialTheme.typography.bodyMedium.copy(
                                 fontSize = 14.sp,
                                 lineHeight = 24.sp,

@@ -28,6 +28,8 @@ import androidx.compose.ui.unit.sp
 import com.example.data.local.entities.SubjectEntity
 import com.example.ui.MainViewModel
 import com.example.ui.Screen
+import com.example.ui.components.RaqeebHeroHeader
+import com.example.ui.components.RaqeebLogoEmblem
 import com.example.ui.components.SectionHeader
 import com.example.ui.components.SubscriptionStatusBadge
 import com.example.ui.theme.*
@@ -62,13 +64,25 @@ fun HomeScreen(
         contentPadding = PaddingValues(bottom = 24.dp),
         verticalArrangement = Arrangement.spacedBy(16.dp)
     ) {
-        // Hero Header Card
+        // 1. الشعار والهوية البصرية الرسمية "رقيب للتعليم الثانوي"
+        item {
+            Box(modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp)) {
+                RaqeebHeroHeader(
+                    onUnderstandClick = { viewModel.navigateTo(Screen.Subjects) },
+                    onSolveClick = { viewModel.navigateTo(Screen.SolveMyQuestion) },
+                    onQuizClick = { viewModel.navigateTo(Screen.Exams) },
+                    onExcelClick = { viewModel.navigateTo(Screen.Profile) }
+                )
+            }
+        }
+
+        // 2. بطاقة الطالب والترحيب ونسبة الإنجاز
         item {
             Card(
                 colors = CardDefaults.cardColors(containerColor = Color.Transparent),
                 shape = RoundedCornerShape(20.dp),
                 modifier = Modifier
-                    .padding(horizontal = 16.dp, vertical = 6.dp)
+                    .padding(horizontal = 16.dp, vertical = 2.dp)
                     .fillMaxWidth()
             ) {
                 Box(
@@ -76,11 +90,11 @@ fun HomeScreen(
                         .fillMaxWidth()
                         .background(
                             Brush.linearGradient(
-                                colors = listOf(NavyPrimary, Color(0xFF1D4ED8), TealAccent)
+                                colors = listOf(RaqeebDeepNavy, RaqeebRoyalBlue, RaqeebElectricBlue)
                             ),
                             RoundedCornerShape(20.dp)
                         )
-                        .padding(20.dp)
+                        .padding(18.dp)
                 ) {
                     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                         Row(
@@ -88,7 +102,7 @@ fun HomeScreen(
                             horizontalArrangement = Arrangement.SpaceBetween,
                             modifier = Modifier.fillMaxWidth()
                         ) {
-                            Column {
+                            Column(modifier = Modifier.weight(1f)) {
                                 Text(
                                     text = "أهلاً بك، ${currentUser?.fullName ?: "طالبنا المتميز"} 👋",
                                     style = MaterialTheme.typography.titleMedium.copy(
@@ -96,42 +110,32 @@ fun HomeScreen(
                                         fontWeight = FontWeight.Bold
                                     )
                                 )
-                                Row(
-                                    verticalAlignment = Alignment.CenterVertically,
-                                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                                Text(
+                                    text = "الصف الثالث الثانوي • المنهج اليمني المعتمد",
+                                    style = MaterialTheme.typography.bodySmall.copy(
+                                        color = RaqeebCyanAccent,
+                                        fontWeight = FontWeight.SemiBold
+                                    )
+                                )
+                                Surface(
+                                    shape = RoundedCornerShape(6.dp),
+                                    color = Color.White.copy(alpha = 0.2f),
+                                    modifier = Modifier.padding(top = 2.dp)
                                 ) {
                                     Text(
-                                        text = "أكاديمية الثالث الثانوي 🇾🇪",
-                                        style = MaterialTheme.typography.headlineSmall.copy(
-                                            color = Color.White,
-                                            fontWeight = FontWeight.ExtraBold,
-                                            fontSize = 19.sp
-                                        )
+                                        text = "الإصدار الثالث 3.0 (V3.0) 🇾🇪",
+                                        color = Color.White,
+                                        fontSize = 10.sp,
+                                        fontWeight = FontWeight.Bold,
+                                        modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
                                     )
-                                    Surface(
-                                        shape = RoundedCornerShape(6.dp),
-                                        color = AmberSecondary
-                                    ) {
-                                        Text(
-                                            text = "الإصدار 2.0",
-                                            color = Color(0xFF78350F),
-                                            fontSize = 10.sp,
-                                            fontWeight = FontWeight.Bold,
-                                            modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
-                                        )
-                                    }
                                 }
                             }
 
-                            Box(
-                                modifier = Modifier
-                                    .size(48.dp)
-                                    .clip(CircleShape)
-                                    .background(Color.White.copy(alpha = 0.2f)),
-                                contentAlignment = Alignment.Center
-                            ) {
-                                Text(text = "🎓", fontSize = 26.sp)
-                            }
+                            RaqeebLogoEmblem(
+                                size = 48.dp,
+                                showBackground = true
+                            )
                         }
 
                         Text(
@@ -228,7 +232,7 @@ fun HomeScreen(
                                 )
                             )
                             Text(
-                                text = "دخول المالك لإدارة الأكاديمية والاشتراكات والمحافظ وتوليد الأكواد",
+                                text = "دخول المالك لإدارة المنصة والاشتراكات والمحافظ وتوليد الأكواد",
                                 style = MaterialTheme.typography.bodySmall.copy(
                                     color = Color(0xFF92400E),
                                     fontSize = 11.sp
@@ -253,6 +257,97 @@ fun HomeScreen(
             }
         }
 
+        // 🧮 Scientific Calculator Prominent Banner
+        item {
+            Box(modifier = Modifier.padding(horizontal = 16.dp)) {
+                Surface(
+                    onClick = { viewModel.navigateTo(Screen.ScientificCalculator) },
+                    shape = RoundedCornerShape(18.dp),
+                    color = Color(0xFFF0FDF4),
+                    border = androidx.compose.foundation.BorderStroke(1.5.dp, Color(0xFF16A34A)),
+                    shadowElevation = 2.dp,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .testTag("scientific_calculator_home_banner")
+                ) {
+                    Row(
+                        modifier = Modifier
+                            .padding(16.dp)
+                            .fillMaxWidth(),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(14.dp)
+                    ) {
+                        Box(
+                            modifier = Modifier
+                                .size(52.dp)
+                                .clip(RoundedCornerShape(14.dp))
+                                .background(Color(0xFF16A34A)),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Text(text = "🧮", fontSize = 28.sp)
+                        }
+
+                        Column(modifier = Modifier.weight(1f)) {
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(8.dp)
+                            ) {
+                                Text(
+                                    text = "الحاسبة العلمية",
+                                    style = MaterialTheme.typography.titleMedium.copy(
+                                        fontWeight = FontWeight.ExtraBold,
+                                        color = Color(0xFF14532D),
+                                        fontSize = 17.sp
+                                    )
+                                )
+                                Surface(
+                                    shape = RoundedCornerShape(6.dp),
+                                    color = Color(0xFFDCFCE7)
+                                ) {
+                                    Text(
+                                        text = "جديد ✨",
+                                        color = Color(0xFF15803D),
+                                        fontSize = 10.sp,
+                                        fontWeight = FontWeight.Bold,
+                                        modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+                                    )
+                                }
+                            }
+                            Spacer(modifier = Modifier.height(3.dp))
+                            Text(
+                                text = "احسب العمليات والمعادلات بسهولة",
+                                style = MaterialTheme.typography.bodyMedium.copy(
+                                    color = Color(0xFF166534),
+                                    fontSize = 12.sp,
+                                    lineHeight = 18.sp
+                                )
+                            )
+                            Text(
+                                text = "كسور حقيقية • أعداد مركبة • حل معادلات • مصفوفات • إحصاء",
+                                style = MaterialTheme.typography.labelSmall.copy(
+                                    color = Color(0xFF15803D).copy(alpha = 0.85f),
+                                    fontSize = 10.sp
+                                )
+                            )
+                        }
+
+                        Surface(
+                            shape = RoundedCornerShape(10.dp),
+                            color = Color(0xFF16A34A)
+                        ) {
+                            Text(
+                                text = "افتح 🧮",
+                                color = Color.White,
+                                fontWeight = FontWeight.Bold,
+                                fontSize = 12.sp,
+                                modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp)
+                            )
+                        }
+                    }
+                }
+            }
+        }
+
         // Main Grid Navigation Items
         item {
             SectionHeader(
@@ -261,6 +356,13 @@ fun HomeScreen(
             )
 
             val gridItems = listOf(
+                GridActionItem(
+                    title = "🧮 الحاسبة العلمية",
+                    desc = "احسب العمليات والمعادلات بسهولة",
+                    bgColor = Color(0xFFF0FDF4),
+                    textColor = Color(0xFF15803D),
+                    screen = Screen.ScientificCalculator
+                ),
                 GridActionItem(
                     title = "📚 المواد الدراسية",
                     desc = "شروحات المنهج والدروس",

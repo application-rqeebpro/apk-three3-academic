@@ -23,6 +23,8 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.ui.MainViewModel
 import com.example.ui.Screen
+import com.example.ui.components.RaqeebBadge
+import com.example.ui.components.RaqeebLogoEmblem
 import com.example.ui.components.copyToClipboard
 import com.example.ui.theme.*
 
@@ -48,25 +50,37 @@ fun SubscriptionGateScreen(
     ) {
         // Academy Header
         item {
-            Spacer(modifier = Modifier.height(10.dp))
-            Box(
-                modifier = Modifier
-                    .size(70.dp)
-                    .clip(CircleShape)
-                    .background(NavyPrimary),
-                contentAlignment = Alignment.Center
-            ) {
-                Text(text = "🇾🇪", fontSize = 32.sp)
-            }
-            Spacer(modifier = Modifier.height(6.dp))
+            Spacer(modifier = Modifier.height(8.dp))
+            RaqeebLogoEmblem(
+                size = 85.dp,
+                showBackground = true
+            )
+            Spacer(modifier = Modifier.height(8.dp))
             Text(
-                text = "أكاديمية الثالث الثانوي اليمني",
+                text = "رَقِــيـب",
                 style = MaterialTheme.typography.titleLarge.copy(
-                    fontWeight = FontWeight.Bold,
-                    color = NavyPrimary,
-                    fontSize = 20.sp
+                    fontWeight = FontWeight.Black,
+                    color = RaqeebDeepNavy,
+                    fontSize = 24.sp
                 )
             )
+            Spacer(modifier = Modifier.height(4.dp))
+            RaqeebBadge(fontSize = 11)
+            Spacer(modifier = Modifier.height(6.dp))
+            Surface(
+                shape = RoundedCornerShape(8.dp),
+                color = RaqeebCyanLight,
+                border = androidx.compose.foundation.BorderStroke(1.dp, RaqeebCyanAccent)
+            ) {
+                Text(
+                    text = "الإصدار الثالث 3.0 • V3.0 🇾🇪",
+                    color = RaqeebDeepNavy,
+                    fontWeight = FontWeight.Bold,
+                    fontSize = 11.sp,
+                    modifier = Modifier.padding(horizontal = 10.dp, vertical = 3.dp)
+                )
+            }
+            Spacer(modifier = Modifier.height(6.dp))
             Text(
                 text = "مرحباً بك يا ${currentUser?.fullName ?: "طالبنا العزيز"} 👋",
                 style = MaterialTheme.typography.bodyMedium.copy(
@@ -101,7 +115,7 @@ fun SubscriptionGateScreen(
 
                     Column(modifier = Modifier.weight(1f)) {
                         Text(
-                            text = "محتوى الأكاديمية مقفل بانتظار التفعيل",
+                            text = "محتوى المنصة مقفل بانتظار التفعيل",
                             style = MaterialTheme.typography.titleSmall.copy(
                                 fontWeight = FontWeight.Bold,
                                 color = ErrorRed
@@ -140,7 +154,7 @@ fun SubscriptionGateScreen(
                     ) {
                         Text(text = "🔑", fontSize = 20.sp)
                         Text(
-                            text = "إدخال رمز التفعيل (Activation Code)",
+                            text = "إدخال رمز التفعيل الرسمي (Activation Code)",
                             style = MaterialTheme.typography.titleMedium.copy(
                                 fontWeight = FontWeight.Bold,
                                 color = NavyPrimary
@@ -149,7 +163,7 @@ fun SubscriptionGateScreen(
                     }
 
                     Text(
-                        text = "إذا استلمت كود التفعيل من الإدارة، أدخله هنا لفتح جميع أقسام الأكاديمية فوراً:",
+                        text = "إذا حصلت على كود تفعيل رسمي من الإدارة أو من أحد وكلاء المنصة المعتمدين، أدخله هنا لتفعيل اشتراكك فوراً:",
                         style = MaterialTheme.typography.bodySmall.copy(color = MaterialTheme.colorScheme.onSurfaceVariant)
                     )
 
@@ -159,8 +173,8 @@ fun SubscriptionGateScreen(
                             codeInput = it.uppercase()
                             codeError = null
                         },
-                        label = { Text("رمز التفعيل") },
-                        placeholder = { Text("مثال: YEMEN-2026") },
+                        label = { Text("رمز التفعيل الرسمي") },
+                        placeholder = { Text("مثال: YEM-XXXX-XXXX") },
                         leadingIcon = { Icon(Icons.Default.VpnKey, contentDescription = null, tint = AmberSecondary) },
                         modifier = Modifier
                             .fillMaxWidth()
@@ -342,7 +356,7 @@ fun SubscriptionGateScreen(
                     Button(
                         onClick = {
                             val msg = """
-*طلب اشتراك وتفعيل كود في أكاديمية الثالث الثانوي اليمني* 🇾🇪
+*طلب اشتراك وتفعيل كود في تطبيق رقيب للتعليم الثانوي* 🇾🇪
 • اسم الطالب: ${currentUser?.fullName ?: "طالب جديد"}
 • رقم الهاتف: ${currentUser?.phoneOrEmail ?: ""}
 • أرغب بالاشتراك وتزويدي برمز التفعيل بعد التحويل عبر المحافظ المعتمدة.
@@ -369,7 +383,7 @@ fun SubscriptionGateScreen(
                     ) {
                         OutlinedButton(
                             onClick = {
-                                val msg = "طلب اشتراك في أكاديمية الثالث الثانوي اليمني - الطالب: ${currentUser?.fullName ?: ""}"
+                                val msg = "طلب اشتراك في تطبيق رقيب للتعليم الثانوي - الطالب: ${currentUser?.fullName ?: ""}"
                                 sendViaSms(context, "785502919", msg)
                             },
                             shape = RoundedCornerShape(10.dp),

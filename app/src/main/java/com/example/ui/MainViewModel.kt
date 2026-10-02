@@ -7,6 +7,7 @@ import androidx.lifecycle.viewModelScope
 import com.example.data.local.AppDatabase
 import com.example.data.local.DatabaseSeeder
 import com.example.data.local.entities.*
+import com.example.data.remote.AttachedFile
 import com.example.data.remote.GeminiRepository
 import com.example.data.repository.AppRepository
 import com.example.data.solver.EducationalSolution
@@ -52,8 +53,10 @@ sealed class Screen(val title: String) {
     object AdminContent : Screen("إدارة المحتوى")
     object AdminNotifications : Screen("إرسال الإشعارات")
     object AdminLogs : Screen("سجل العمليات")
+    object ScientificCalculator : Screen("الحاسبة العلمية")
 }
 
+@OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class, kotlinx.coroutines.FlowPreview::class)
 class MainViewModel(application: Application) : AndroidViewModel(application) {
 
     val database = AppDatabase.getInstance(application)
@@ -125,6 +128,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     val solverQuestionInput = MutableStateFlow("")
     val solverSelectedSubject = MutableStateFlow("الرياضيات")
     val solverImageBitmap = MutableStateFlow<Bitmap?>(null)
+    val solverAttachedFile = MutableStateFlow<AttachedFile?>(null)
     val solverResultText = MutableStateFlow<String?>(null)
     val solverStructuredResult = MutableStateFlow<EducationalSolution?>(null)
     val isSolving = MutableStateFlow(false)
@@ -313,6 +317,20 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         navigateTo(Screen.LessonDetail)
     }
 
+    fun navigateToAdjacentLesson(next: Boolean) {
+        val current = _selectedLesson.value ?: return
+        viewModelScope.launch {
+            val unitLessons = repository.getLessonsForUnit(current.unitId).firstOrNull() ?: emptyList()
+            val index = unitLessons.indexOfFirst { it.id == current.id }
+            if (index != -1) {
+                val targetIndex = if (next) index + 1 else index - 1
+                if (targetIndex in unitLessons.indices) {
+                    selectLesson(unitLessons[targetIndex])
+                }
+            }
+        }
+    }
+
     fun setExplanationLevel(level: String) {
         _explanationLevel.value = level
     }
@@ -369,8 +387,9 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     fun solveQuestion() {
         val text = solverQuestionInput.value.trim()
         val bmp = solverImageBitmap.value
-        if (text.isBlank() && bmp == null) {
-            toastMessage.value = "يرجى كتابة السؤال أو تصوير المسألة"
+        val file = solverAttachedFile.value
+        if (text.isBlank() && bmp == null && file == null) {
+            toastMessage.value = "يرجى كتابة السؤال أو تصوير المسألة أو إرفاق ملفها"
             return
         }
 
@@ -380,6 +399,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
             val solution = geminiRepo.solveStudentQuestionStructured(
                 questionText = text,
                 imageBitmap = bmp,
+                attachedFile = file,
                 subject = solverSelectedSubject.value
             )
             solverStructuredResult.value = solution
@@ -412,6 +432,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     fun clearSolver() {
         solverQuestionInput.value = ""
         solverImageBitmap.value = null
+        solverAttachedFile.value = null
         solverResultText.value = null
         solverStructuredResult.value = null
         verificationReport.value = null
@@ -650,10 +671,59 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
+    fun adminUpdateLesson(lesson: LessonEntity) {
+        viewModelScope.launch {
+            repository.updateLesson(lesson)
+            toastMessage.value = "تم تحديث بيانات الدرس بنجاح"
+        }
+    }
+
     fun adminDeleteLesson(lesson: LessonEntity) {
         viewModelScope.launch {
             repository.deleteLesson(lesson)
             toastMessage.value = "تم حذف الدرس"
+        }
+    }
+
+    fun adminAddUnit(unit: UnitEntity) {
+        viewModelScope.launch {
+            repository.addUnit(unit)
+            toastMessage.value = "تمت إضافة الوحدة بنجاح"
+        }
+    }
+
+    fun adminUpdateUnit(unit: UnitEntity) {
+        viewModelScope.launch {
+            repository.updateUnit(unit)
+            toastMessage.value = "تم تحديث بيانات الوحدة"
+        }
+    }
+
+    fun adminDeleteUnit(unit: UnitEntity) {
+        viewModelScope.launch {
+            repository.deleteUnit(unit)
+            toastMessage.value = "تم حذف الوحدة"
+        }
+    }
+
+    fun adminAddQuestion(question: QuestionEntity) {
+        viewModelScope.launch {
+            repository.addQuestion(question)
+            toastMessage.value = "تمت إضافة السؤال بنجاح"
+        }
+    }
+
+    fun adminDeleteQuestion(question: QuestionEntity) {
+        viewModelScope.launch {
+            repository.deleteQuestion(question)
+            toastMessage.value = "تم حذف السؤال"
+        }
+    }
+
+    fun adminAddExam(exam: ExamEntity) {
+        viewModelScope.launch {
+            repository.addExam(exam)
+            toastMessage.value = "تمت إضافة الاختبار بنجاح"
         }
     }
 

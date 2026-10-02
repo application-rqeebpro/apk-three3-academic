@@ -22,6 +22,6 @@ dependencyResolutionManagement {
   }
 }
 
-rootProject.name = "أكاديمية الثالث الثانوي"
+rootProject.name = "رقيب للتعليم الثانوي"
 
 include(":app")

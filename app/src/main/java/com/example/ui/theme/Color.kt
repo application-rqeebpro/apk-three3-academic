@@ -2,33 +2,44 @@ package com.example.ui.theme
 
 import androidx.compose.ui.graphics.Color
 
-// Light Theme Palette
-val NavyPrimary = Color(0xFF1E3A8A)
-val NavyLight = Color(0xFF2563EB)
-val AmberSecondary = Color(0xFFD97706)
-val AmberLight = Color(0xFFF59E0B)
-val TealAccent = Color(0xFF0D9488)
+// ==========================================
+// الهوية البصرية الرسمية لتطبيق رقيب للتعليم الثانوي
+// ==========================================
+val RaqeebRoyalBlue = Color(0xFF0044B3)       // أزرق ملكي داكن (قبعة التخرج وحرف R)
+val RaqeebDeepNavy = Color(0xFF00266B)        // كحلي عميق (نصوص وظلال اللوجو)
+val RaqeebElectricBlue = Color(0xFF0062E3)    // أزرق مشرق تفاعلي (الأزرار والبطاقات)
+val RaqeebCyanAccent = Color(0xFF00A3FF)      // سماوي مضيء (صفحات الكتاب والشارات)
+val RaqeebCyanLight = Color(0xFFE0F2FE)       // خلفيات سماوية ناعمة
+val RaqeebIceBlue = Color(0xFFF0F7FF)         // خلفية الهوية البصرية النقية
+val RaqeebIceBlueBorder = Color(0xFFCFE4FD)   // حدود متناسقة ناعمة
 
-val BackgroundLight = Color(0xFFF8FAFC)
+// Light Theme Palette (Aligned with Raqeeb Visual Identity)
+val NavyPrimary = RaqeebRoyalBlue
+val NavyLight = RaqeebElectricBlue
+val AmberSecondary = Color(0xFFF59E0B)
+val AmberLight = Color(0xFFFBBF24)
+val TealAccent = RaqeebCyanAccent
+
+val BackgroundLight = Color(0xFFF4F8FC)
 val SurfaceLight = Color(0xFFFFFFFF)
-val SurfaceVariantLight = Color(0xFFF1F5F9)
-val TextPrimaryLight = Color(0xFF0F172A)
-val TextSecondaryLight = Color(0xFF475569)
-val BorderLight = Color(0xFFE2E8F0)
+val SurfaceVariantLight = Color(0xFFEBF3FC)
+val TextPrimaryLight = Color(0xFF0A2240)
+val TextSecondaryLight = Color(0xFF4B617E)
+val BorderLight = Color(0xFFD6E4F0)
 
 // Dark Theme Palette
-val NavyDarkPrimary = Color(0xFF60A5FA)
-val BackgroundDark = Color(0xFF0B132B)
-val SurfaceDark = Color(0xFF1C2541)
-val SurfaceVariantDark = Color(0xFF243254)
-val TextPrimaryDark = Color(0xFFF8FAFC)
-val TextSecondaryDark = Color(0xFF94A3B8)
-val BorderDark = Color(0xFF334155)
+val NavyDarkPrimary = Color(0xFF38BDF8)
+val BackgroundDark = Color(0xFF071426)
+val SurfaceDark = Color(0xFF0D213A)
+val SurfaceVariantDark = Color(0xFF142E50)
+val TextPrimaryDark = Color(0xFFF0F7FF)
+val TextSecondaryDark = Color(0xFF94A9C4)
+val BorderDark = Color(0xFF1E3D66)
 
-// Status Colors
-val SuccessGreen = Color(0xFF16A34A)
-val WarningYellow = Color(0xFFCA8A04)
-val ErrorRed = Color(0xFFDC2626)
+// Status & Accent Cards
+val SuccessGreen = Color(0xFF10B981)
+val WarningYellow = Color(0xFFF59E0B)
+val ErrorRed = Color(0xFFEF4444)
 val CardGold = Color(0xFFFEF3C7)
-val CardNavy = Color(0xFFDBEAFE)
-val CardTeal = Color(0xFFCCFBF1)
+val CardNavy = Color(0xFFE0EDFD)
+val CardTeal = Color(0xFFE0F7FA)

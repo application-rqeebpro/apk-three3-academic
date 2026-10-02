@@ -13,10 +13,15 @@
                 android:endX="108"
                 android:endY="108"
                 android:type="linear">
-                <item android:offset="0.0" android:color="#0F172A" />
-                <item android:offset="0.5" android:color="#1E3A8A" />
-                <item android:offset="1.0" android:color="#0284C7" />
+                <item android:offset="0.0" android:color="#F0F7FF" />
+                <item android:offset="0.45" android:color="#E0EFFF" />
+                <item android:offset="1.0" android:color="#BAE6FD" />
             </gradient>
         </aapt:attr>
     </path>
+    <!-- Subtle outer brand border ring -->
+    <path
+        android:strokeColor="#00A3FF"
+        android:strokeWidth="1.5"
+        android:pathData="M12,4 L96,4 C100.4,4 104,7.6 104,12 L104,96 C104,100.4 100.4,104 96,104 L12,104 C7.6,104 4,100.4 4,96 L4,12 C4,7.6 7.6,4 12,4 Z" />
 </vector>

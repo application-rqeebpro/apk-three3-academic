@@ -25,6 +25,7 @@ import com.example.data.local.entities.FavoriteEntity
 import com.example.data.local.entities.LessonEntity
 import com.example.ui.MainViewModel
 import com.example.ui.Screen
+import com.example.ui.components.RaqeebLogoEmblem
 import com.example.ui.theme.*
 import java.text.SimpleDateFormat
 import java.util.*
@@ -85,7 +86,7 @@ fun ProfileScreen(
 
                     Column(modifier = Modifier.weight(1f)) {
                         Text(
-                            text = currentUser?.fullName ?: "طالب الأكاديمية",
+                            text = currentUser?.fullName ?: "طالب رقيب للتعليم الثانوي",
                             style = MaterialTheme.typography.titleLarge.copy(
                                 fontWeight = FontWeight.Bold,
                                 color = MaterialTheme.colorScheme.onPrimaryContainer
@@ -245,18 +246,26 @@ fun ProfileScreen(
                 Column(
                     modifier = Modifier.padding(16.dp).fillMaxWidth(),
                     horizontalAlignment = Alignment.CenterHorizontally,
-                    verticalArrangement = Arrangement.spacedBy(4.dp)
+                    verticalArrangement = Arrangement.spacedBy(6.dp)
                 ) {
+                    RaqeebLogoEmblem(size = 54.dp, showBackground = true)
                     Text(
-                        text = "🇾🇪 أكاديمية الثالث الثانوي اليمني",
-                        style = MaterialTheme.typography.labelLarge.copy(fontWeight = FontWeight.Bold, color = NavyPrimary)
+                        text = "🇾🇪 تطبيق رقيب للتعليم الثانوي",
+                        style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold, color = RaqeebDeepNavy)
                     )
+                    Surface(
+                        shape = RoundedCornerShape(8.dp),
+                        color = AmberSecondary.copy(alpha = 0.15f),
+                        border = androidx.compose.foundation.BorderStroke(1.dp, AmberSecondary)
+                    ) {
+                        Text(
+                            text = "الإصدار الثالث 3.0 (Version 3.0.0)",
+                            style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Bold, color = RaqeebRoyalBlue),
+                            modifier = Modifier.padding(horizontal = 10.dp, vertical = 3.dp)
+                        )
+                    }
                     Text(
-                        text = "الإصدار 2.0 (Version 2.0.0)",
-                        style = MaterialTheme.typography.bodySmall.copy(fontWeight = FontWeight.SemiBold, color = AmberSecondary)
-                    )
-                    Text(
-                        text = "المنهج الوزاري اليمني المعتمد • نظام الحل الدقيق والمحمي",
+                        text = "المنهج الوزاري اليمني المعتمد • نظام الهوية البصرية الرسمية المتكاملة",
                         style = MaterialTheme.typography.bodySmall.copy(color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 11.sp)
                     )
                 }

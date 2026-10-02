@@ -26,7 +26,7 @@ import com.example.data.local.entities.*
         NotificationEntity::class,
         ActivityLogEntity::class
     ],
-    version = 2,
+    version = 3,
     exportSchema = false
 )
 abstract class AppDatabase : RoomDatabase() {
@@ -54,7 +54,7 @@ abstract class AppDatabase : RoomDatabase() {
                     AppDatabase::class.java,
                     "yemen_secondary_academy.db"
                 )
-                .fallbackToDestructiveMigration()
+                .fallbackToDestructiveMigration(dropAllTables = true)
                 .build()
                 INSTANCE = instance
                 instance

@@ -148,6 +148,12 @@ interface CurriculumDao {
     @Query("SELECT * FROM units WHERE subjectId = :subjectId ORDER BY sortOrder ASC, id ASC")
     fun getUnitsForSubject(subjectId: Long): Flow<List<UnitEntity>>
 
+    @Query("SELECT * FROM units WHERE id = :id")
+    suspend fun getUnitById(id: Long): UnitEntity?
+
+    @Query("SELECT * FROM lessons WHERE subjectId = :subjectId AND (title LIKE '%' || :query || '%' OR coreIdea LIKE '%' || :query || '%' OR formulas LIKE '%' || :query || '%' OR keyPoints LIKE '%' || :query || '%') ORDER BY sortOrder ASC")
+    fun searchLessonsInSubject(subjectId: Long, query: String): Flow<List<LessonEntity>>
+
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertUnit(unit: UnitEntity): Long
 
@@ -159,6 +165,12 @@ interface CurriculumDao {
 
     @Delete
     suspend fun deleteUnit(unit: UnitEntity)
+
+    @Query("DELETE FROM units WHERE subjectId = :subjectId AND id < :minId")
+    suspend fun deleteLegacyUnits(subjectId: Long, minId: Long = 100)
+
+    @Query("DELETE FROM lessons WHERE subjectId = :subjectId AND id < :minId")
+    suspend fun deleteLegacyLessons(subjectId: Long, minId: Long = 1000)
 
     // Chapters
     @Query("SELECT * FROM chapters WHERE unitId = :unitId ORDER BY sortOrder ASC, id ASC")
@@ -207,11 +219,20 @@ interface QuestionDao {
     @Query("SELECT * FROM questions WHERE subjectId = :subjectId ORDER BY id ASC")
     fun getQuestionsForSubject(subjectId: Long): Flow<List<QuestionEntity>>
 
+    @Query("SELECT * FROM questions WHERE unitId = :unitId ORDER BY id ASC")
+    fun getQuestionsForUnit(unitId: Long): Flow<List<QuestionEntity>>
+
+    @Query("SELECT * FROM questions WHERE lessonId = :lessonId ORDER BY id ASC")
+    fun getQuestionsForLesson(lessonId: Long): Flow<List<QuestionEntity>>
+
     @Query("SELECT * FROM questions WHERE subjectId = :subjectId AND difficulty = :difficulty")
     fun getQuestionsByDifficulty(subjectId: Long, difficulty: String): Flow<List<QuestionEntity>>
 
     @Query("SELECT * FROM questions WHERE subjectId = :subjectId ORDER BY RANDOM() LIMIT :limit")
     suspend fun getRandomQuestionsForSubject(subjectId: Long, limit: Int): List<QuestionEntity>
+
+    @Query("SELECT * FROM questions WHERE unitId = :unitId ORDER BY RANDOM() LIMIT :limit")
+    suspend fun getRandomQuestionsForUnit(unitId: Long, limit: Int): List<QuestionEntity>
 
     @Query("SELECT * FROM questions ORDER BY RANDOM() LIMIT :limit")
     suspend fun getRandomQuestionsOverall(limit: Int): List<QuestionEntity>
@@ -230,6 +251,9 @@ interface QuestionDao {
 
     @Query("SELECT COUNT(*) FROM questions")
     fun getQuestionCount(): Flow<Int>
+
+    @Query("DELETE FROM questions WHERE subjectId = :subjectId AND id < :minId")
+    suspend fun deleteLegacyQuestions(subjectId: Long, minId: Long = 1000)
 }
 
 @Dao
@@ -237,8 +261,14 @@ interface ExamDao {
     @Query("SELECT * FROM exams ORDER BY id ASC")
     fun getAllExams(): Flow<List<ExamEntity>>
 
+    @Query("DELETE FROM exams WHERE subjectId = :subjectId AND id < :minId")
+    suspend fun deleteLegacyExams(subjectId: Long, minId: Long = 100)
+
     @Query("SELECT * FROM exams WHERE subjectId = :subjectId ORDER BY id ASC")
     fun getExamsForSubject(subjectId: Long): Flow<List<ExamEntity>>
+
+    @Query("SELECT * FROM exams WHERE unitId = :unitId ORDER BY id ASC")
+    fun getExamsForUnit(unitId: Long): Flow<List<ExamEntity>>
 
     @Query("SELECT * FROM exams WHERE id = :id")
     suspend fun getExamById(id: Long): ExamEntity?
@@ -248,6 +278,12 @@ interface ExamDao {
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertExam(exam: ExamEntity): Long
+
+    @Update
+    suspend fun updateExam(exam: ExamEntity)
+
+    @Delete
+    suspend fun deleteExam(exam: ExamEntity)
 
     @Query("SELECT COUNT(*) FROM exams")
     fun getExamCount(): Flow<Int>

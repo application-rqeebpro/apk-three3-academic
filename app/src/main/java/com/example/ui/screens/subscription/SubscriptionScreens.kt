@@ -230,7 +230,7 @@ fun SubscriptionScreen(
 
                             Button(
                                 onClick = {
-                                    val generalMsg = "مرحباً إدارة أكاديمية الثالث الثانوي اليمني، أود الاستفسار والاشتراك في الأكاديمية عبر الرقم 785502919."
+                                    val generalMsg = "مرحباً إدارة تطبيق رقيب للتعليم الثانوي، أود الاستفسار والاشتراك عبر الرقم 785502919."
                                     sendViaWhatsApp(context, "785502919", generalMsg)
                                 },
                                 colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF25D366)),
@@ -339,7 +339,7 @@ fun SubscriptionScreen(
                         Button(
                             onClick = {
                                 val planMsg = """
-*طلب اشتراك في أكاديمية الثالث الثانوي اليمني* 🇾🇪
+*طلب اشتراك في تطبيق رقيب للتعليم الثانوي* 🇾🇪
 • الخطة المطلوبة: ${plan.name}
 • المبلغ: ${plan.priceYmr} ريال يمني
 أود تأكيد الاشتراك وتحويل الرسوم للرقم 785502919.
@@ -581,7 +581,7 @@ fun PaymentFormScreen(
                         receiptUri = receiptNote.takeIf { it.isNotBlank() },
                         onSuccess = {
                             val msg = """
-*طلب اشتراك جديد في أكاديمية الثالث الثانوي اليمني* 🇾🇪
+*طلب اشتراك جديد في تطبيق رقيب للتعليم الثانوي* 🇾🇪
 • اسم الطالب: $studentName
 • رقم الهاتف: $studentPhone
 • الخطة المطلوبة: $selectedPlanName
@@ -609,7 +609,7 @@ ${if (receiptNote.isNotBlank()) "• ملاحظة: $receiptNote\n" else ""}ير�
 
             if (showSendToNumberDialog) {
                 val formattedMessage = """
-*طلب اشتراك جديد في أكاديمية الثالث الثانوي اليمني* 🇾🇪
+*طلب اشتراك جديد في تطبيق رقيب للتعليم الثانوي* 🇾🇪
 • اسم الطالب: $studentName
 • رقم الهاتف: $studentPhone
 • الخطة المطلوبة: $selectedPlanName

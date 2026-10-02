@@ -1,0 +1,108 @@
+<?xml version="1.0" encoding="utf-8"?>
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="128dp"
+    android:height="128dp"
+    android:viewportWidth="128"
+    android:viewportHeight="128">
+
+    <!-- Subtle Rounded Background Shape -->
+    <path
+        android:fillColor="#EBF4FE"
+        android:pathData="M24,4 C12.95,4 4,12.95 4,24 L4,104 C4,115.05 12.95,124 24,124 L104,124 C115.05,124 124,115.05 124,104 L124,24 C124,12.95 115.05,4 104,4 Z" />
+
+    <!-- Outer Decorative Arcs (Cyan/Blue Ribbon Accents) -->
+    <path
+        android:fillColor="#00A3FF"
+        android:pathData="M16,42 C16,42 8,64 12,88 C13,94 17,92 18,86 C15,66 21,50 21,50 Z" />
+    <path
+        android:fillColor="#00A3FF"
+        android:pathData="M112,42 C112,42 120,64 116,88 C115,94 111,92 110,86 C113,66 107,50 107,50 Z" />
+
+    <!-- Open Book Pages (Bottom Layers - Cyan Glow) -->
+    <path
+        android:fillColor="#38BDF8"
+        android:pathData="M64,68 C50,62 30,60 18,66 C17,68 18,72 20,72 C32,67 50,69 64,74 C78,69 96,67 108,72 C110,72 111,68 110,66 C98,60 78,62 64,68 Z" />
+
+    <!-- Open Book Pages (Middle Layers - Vibrant Royal Blue) -->
+    <path
+        android:fillColor="#0066FF"
+        android:pathData="M64,73 C50,67 28,66 15,74 C14,76 15,79 17,79 C30,73 50,75 64,80 C78,75 98,73 111,79 C113,79 114,76 113,74 C100,66 78,67 64,73 Z" />
+
+    <!-- Open Book Pages (Main Thick Base - Deep Royal Blue) -->
+    <path
+        android:fillColor="#003B95"
+        android:pathData="M64,78 C52,73 30,72 14,81 C13,83 14,86 16,86 C31,79 51,81 64,86 C77,81 97,79 112,86 C114,86 115,83 114,81 C98,72 76,73 64,78 Z" />
+
+    <!-- Open Book Spine & Solid Binding -->
+    <path
+        android:fillColor="#00266B"
+        android:pathData="M64,84 L64,96 C64,96 52,90 28,94 L26,90 C48,86 61,85 64,84 Z" />
+    <path
+        android:fillColor="#001B4D"
+        android:pathData="M64,84 L64,96 C64,96 76,90 100,94 L102,90 C80,86 67,85 64,84 Z" />
+
+    <!-- Stylized Letter 'R' / Graduation Centerpiece -->
+    <!-- R Stem and Curve -->
+    <path
+        android:fillColor="#004BB7"
+        android:pathData="M48,36 L64,36 C74,36 78,42 78,48 C78,54 73,58 64,58 L54,58 L54,76 L48,76 Z" />
+    <path
+        android:fillColor="#00A3FF"
+        android:pathData="M54,42 L63,42 C68,42 71,44 71,48 C71,52 68,54 63,54 L54,54 Z" />
+    <!-- R Dynamic Swoosh Leg -->
+    <path
+        android:fillColor="#0066FF"
+        android:pathData="M62,56 C67,56 71,60 74,66 L80,78 L72,78 L67,67 C65,63 63,61 60,61 L54,61 L54,56 Z" />
+
+    <!-- 3D Graduation Mortarboard (Top Diamond) -->
+    <!-- Top Diamond Surface (Light Royal Blue) -->
+    <path
+        android:fillColor="#0052CC"
+        android:pathData="M64,12 L100,27 L64,42 L28,27 Z" />
+    <!-- Left Top Highlight -->
+    <path
+        android:fillColor="#0066FF"
+        android:pathData="M64,12 L28,27 L64,42 Z" />
+    <!-- 3D Edge/Rim Thickness -->
+    <path
+        android:fillColor="#003580"
+        android:pathData="M28,27 L28,30 L64,45 L100,30 L100,27 L64,42 Z" />
+
+    <!-- Mortarboard Skull Cap Base -->
+    <path
+        android:fillColor="#002B7A"
+        android:pathData="M44,38 L44,48 C44,56 64,60 64,60 C64,60 84,56 84,48 L84,38 L64,45 Z" />
+
+    <!-- Mortarboard Button and Tassel -->
+    <path
+        android:fillColor="#38BDF8"
+        android:pathData="M64,24 A3,3 0 1,0 64,30 A3,3 0 1,0 64,24 Z" />
+    <!-- Tassel Ribbon Strand -->
+    <path
+        android:strokeColor="#00A3FF"
+        android:strokeWidth="2.5"
+        android:strokeLineCap="round"
+        android:pathData="M64,27 C78,28 92,30 92,42 L92,54" />
+    <!-- Tassel Brush/Fringe -->
+    <path
+        android:fillColor="#00A3FF"
+        android:pathData="M89,52 L95,52 L96,64 C96,66 94,67 92,67 C90,67 88,66 88,64 Z" />
+
+    <!-- Bottom Emblem Brand Badge Ribbon: للتعليم الثانوي -->
+    <path
+        android:fillColor="#004BB7"
+        android:pathData="M32,100 C32,96 36,94 40,94 L88,94 C92,94 96,96 96,100 L96,106 C96,110 92,112 88,112 L40,112 C36,112 32,110 32,106 Z" />
+    <!-- Left and right accent stripes -->
+    <path
+        android:fillColor="#00A3FF"
+        android:pathData="M20,102 L30,102 C31,102 31,104 30,104 L20,104 Z" />
+    <path
+        android:fillColor="#00A3FF"
+        android:pathData="M98,102 L108,102 C109,102 109,104 108,104 L98,104 Z" />
+
+    <!-- Central White Star / Excellence Pin -->
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M64,98 L65.5,101.5 L69,102 L66.5,104.5 L67,108 L64,106 L61,108 L61.5,104.5 L59,102 L62.5,101.5 Z" />
+
+</vector>

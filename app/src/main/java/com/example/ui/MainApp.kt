@@ -37,6 +37,7 @@ import com.example.ui.screens.subscription.PaymentFormScreen
 import com.example.ui.screens.subscription.SubscriptionScreen
 import com.example.ui.screens.explain.ExplainMeScreen
 import com.example.ui.screens.subscription.SubscriptionGateScreen
+import com.example.ui.screens.calculator.ScientificCalculatorScreen
 import com.example.ui.theme.MyApplicationTheme
 
 @Composable
@@ -63,7 +64,7 @@ fun MainApp(viewModel: MainViewModel) {
     // Force RTL for Arabic Educational Academy
     CompositionLocalProvider(LocalLayoutDirection provides LayoutDirection.Rtl) {
         MyApplicationTheme(darkTheme = isDarkMode) {
-            val canNavigateBack = !isNotLoggedIn && !isLockedStudent && currentScreen != Screen.Home
+            val canNavigateBack = if (currentScreen == Screen.ScientificCalculator) true else (!isNotLoggedIn && !isLockedStudent && currentScreen != Screen.Home)
             BackHandler(enabled = canNavigateBack) {
                 viewModel.navigateBack()
             }
@@ -78,8 +79,9 @@ fun MainApp(viewModel: MainViewModel) {
             )
 
             val displayTitle = when {
-                isNotLoggedIn -> if (currentScreen == Screen.Register) "إنشاء حساب طالب جديد" else "تسجيل الدخول للأكاديمية"
-                isLockedStudent -> "تفعيل اشتراك الأكاديمية 🇾🇪"
+                currentScreen == Screen.ScientificCalculator -> "🧮 الحاسبة العلمية"
+                isNotLoggedIn -> if (currentScreen == Screen.Register) "إنشاء حساب طالب جديد" else "تسجيل الدخول - رقيب للتعليم الثانوي"
+                isLockedStudent -> "تفعيل اشتراك رقيب للتعليم الثانوي 🇾🇪"
                 else -> currentScreen.title
             }
 
@@ -127,6 +129,7 @@ fun MainApp(viewModel: MainViewModel) {
                             when (currentScreen) {
                                 Screen.Register -> RegisterScreen(viewModel)
                                 Screen.AdminDashboard -> AdminDashboardScreen(viewModel)
+                                Screen.ScientificCalculator -> ScientificCalculatorScreen(viewModel)
                                 else -> LoginScreen(viewModel)
                             }
                         }
@@ -136,6 +139,7 @@ fun MainApp(viewModel: MainViewModel) {
                             when (currentScreen) {
                                 Screen.PaymentForm -> PaymentFormScreen(viewModel)
                                 Screen.AdminDashboard -> AdminDashboardScreen(viewModel)
+                                Screen.ScientificCalculator -> ScientificCalculatorScreen(viewModel)
                                 else -> SubscriptionGateScreen(viewModel)
                             }
                         }
@@ -171,6 +175,7 @@ fun MainApp(viewModel: MainViewModel) {
                                 Screen.AdminContent -> AdminContentScreen(viewModel)
                                 Screen.AdminNotifications -> AdminNotificationsScreen(viewModel)
                                 Screen.AdminLogs -> AdminLogsScreen(viewModel)
+                                Screen.ScientificCalculator -> ScientificCalculatorScreen(viewModel)
                             }
                         }
                     }
@@ -195,7 +200,7 @@ fun MainApp(viewModel: MainViewModel) {
                     text = {
                         Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
                             Text(
-                                text = "هذا القسم مخصص لإدارة الأكاديمية والاشتراكات والمحافظ وأكواد التفعيل.",
+                                text = "هذا القسم مخصص لإدارة المنصة والاشتراكات والمحافظ وأكواد التفعيل.",
                                 style = MaterialTheme.typography.bodySmall.copy(color = MaterialTheme.colorScheme.onSurfaceVariant)
                             )
 

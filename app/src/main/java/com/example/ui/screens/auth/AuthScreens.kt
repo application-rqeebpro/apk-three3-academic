@@ -20,6 +20,8 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.ui.MainViewModel
 import com.example.ui.Screen
+import com.example.ui.components.RaqeebBadge
+import com.example.ui.components.RaqeebLogoEmblem
 import com.example.ui.theme.*
 
 // -------------------------------------------------------------
@@ -44,39 +46,43 @@ fun LoginScreen(
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
         item {
-            Spacer(modifier = Modifier.height(20.dp))
-            Box(
-                modifier = Modifier
-                    .size(72.dp)
-                    .clip(CircleShape)
-                    .background(NavyPrimary),
-                contentAlignment = Alignment.Center
-            ) {
-                Text(text = "🎓", fontSize = 36.sp)
-            }
+            Spacer(modifier = Modifier.height(16.dp))
+            RaqeebLogoEmblem(
+                size = 96.dp,
+                showBackground = true
+            )
             Spacer(modifier = Modifier.height(8.dp))
             Text(
-                text = "أكاديمية الثالث الثانوي اليمني",
-                style = MaterialTheme.typography.headlineSmall.copy(fontWeight = FontWeight.Bold, color = NavyPrimary)
+                text = "رَقِــيـب",
+                style = MaterialTheme.typography.headlineMedium.copy(
+                    fontWeight = FontWeight.Black,
+                    color = RaqeebDeepNavy,
+                    fontSize = 28.sp
+                )
             )
             Spacer(modifier = Modifier.height(4.dp))
+            RaqeebBadge(fontSize = 11)
+            Spacer(modifier = Modifier.height(6.dp))
             Surface(
                 shape = RoundedCornerShape(8.dp),
-                color = AmberSecondary.copy(alpha = 0.2f),
-                border = androidx.compose.foundation.BorderStroke(1.dp, AmberSecondary)
+                color = RaqeebCyanLight,
+                border = androidx.compose.foundation.BorderStroke(1.dp, RaqeebCyanAccent)
             ) {
                 Text(
-                    text = "الإصدار 2.0 (V2.0) 🇾🇪",
-                    color = NavyPrimary,
+                    text = "الإصدار الثالث 3.0 • V3.0 🇾🇪",
+                    color = RaqeebDeepNavy,
                     fontWeight = FontWeight.Bold,
                     fontSize = 11.sp,
-                    modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp)
+                    modifier = Modifier.padding(horizontal = 10.dp, vertical = 3.dp)
                 )
             }
-            Spacer(modifier = Modifier.height(4.dp))
+            Spacer(modifier = Modifier.height(6.dp))
             Text(
                 text = "تسجيل الدخول إلى حسابك الدراسي",
-                style = MaterialTheme.typography.bodyMedium.copy(color = MaterialTheme.colorScheme.onSurfaceVariant)
+                style = MaterialTheme.typography.bodyMedium.copy(
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    fontWeight = FontWeight.SemiBold
+                )
             )
         }
 
@@ -131,7 +137,7 @@ fun LoginScreen(
                                 viewModel.navigateTo(Screen.Home)
                             }
                         },
-                        colors = ButtonDefaults.buttonColors(containerColor = NavyPrimary),
+                        colors = ButtonDefaults.buttonColors(containerColor = RaqeebRoyalBlue),
                         shape = RoundedCornerShape(12.dp),
                         modifier = Modifier
                             .fillMaxWidth()
@@ -226,14 +232,35 @@ fun RegisterScreen(
     ) {
         item {
             Spacer(modifier = Modifier.height(10.dp))
+            RaqeebLogoEmblem(
+                size = 76.dp,
+                showBackground = true
+            )
+            Spacer(modifier = Modifier.height(6.dp))
             Text(
                 text = "إنشاء حساب طالب جديد 📝",
-                style = MaterialTheme.typography.headlineSmall.copy(fontWeight = FontWeight.Bold, color = NavyPrimary)
+                style = MaterialTheme.typography.headlineSmall.copy(fontWeight = FontWeight.Bold, color = RaqeebDeepNavy)
             )
             Text(
-                text = "الصف الثالث الثانوي - الجمهورية اليمنية",
-                style = MaterialTheme.typography.bodySmall.copy(color = MaterialTheme.colorScheme.onSurfaceVariant)
+                text = "تطبيق رقيب للتعليم الثانوي - الجمهورية اليمنية",
+                style = MaterialTheme.typography.bodySmall.copy(
+                    color = RaqeebElectricBlue,
+                    fontWeight = FontWeight.SemiBold
+                )
             )
+            Surface(
+                shape = RoundedCornerShape(8.dp),
+                color = RaqeebCyanLight,
+                border = androidx.compose.foundation.BorderStroke(1.dp, RaqeebCyanAccent)
+            ) {
+                Text(
+                    text = "الإصدار الثالث 3.0 • V3.0 🇾🇪",
+                    color = RaqeebDeepNavy,
+                    fontWeight = FontWeight.Bold,
+                    fontSize = 11.sp,
+                    modifier = Modifier.padding(horizontal = 10.dp, vertical = 3.dp)
+                )
+            }
         }
 
         item {

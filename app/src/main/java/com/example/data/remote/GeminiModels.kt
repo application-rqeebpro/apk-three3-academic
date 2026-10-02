@@ -22,7 +22,16 @@ data class GeminiContent(
 data class GeminiPart(
     val text: String? = null,
     @Json(name = "inline_data")
-    val inlineData: GeminiInlineData? = null
+    val inlineData: GeminiInlineData? = null,
+    @Json(name = "thoughtSignature")
+    val thoughtSignature: String? = null
+)
+
+data class AttachedFile(
+    val fileName: String,
+    val mimeType: String,
+    val base64Data: String,
+    val sizeBytes: Long
 )
 
 @JsonClass(generateAdapter = true)

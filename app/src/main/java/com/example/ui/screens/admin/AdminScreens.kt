@@ -95,7 +95,7 @@ fun AdminDashboardScreen(
                     )
 
                     Text(
-                        text = "هذا القسم مخصص لمالك وإدارة أكاديمية الثالث الثانوي اليمني للتحكم بالاشتراكات وتأكيد المحافظ وإصدار الأكواد والدروس.",
+                        text = "هذا القسم مخصص لمالك وإدارة تطبيق رقيب للتعليم الثانوي للتحكم بالاشتراكات وتأكيد المحافظ وإصدار الأكواد والدروس.",
                         style = MaterialTheme.typography.bodySmall.copy(
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                             textAlign = androidx.compose.ui.text.style.TextAlign.Center
