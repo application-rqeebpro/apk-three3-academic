@@ -1,12 +1,12 @@
 package com.example.ui.screens.exams
 
-import androidx.compose.animation.*
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
-import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
@@ -17,279 +17,290 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.data.local.entities.ExamEntity
 import com.example.data.local.entities.QuestionEntity
 import com.example.ui.MainViewModel
 import com.example.ui.Screen
-import com.example.ui.theme.*
 
-// -------------------------------------------------------------
-// EXAMS LIST SCREEN
-// -------------------------------------------------------------
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ExamsScreen(
     viewModel: MainViewModel,
-    modifier: Modifier = Modifier
+    onNavigate: (Screen) -> Unit
 ) {
     val exams by viewModel.allExams.collectAsState()
     val subjects by viewModel.allSubjects.collectAsState()
-    val results by viewModel.userExamResults.collectAsState()
-    val isSubscribed by viewModel.isSubscribed.collectAsState()
 
-    var showRandomExamDialog by remember { mutableStateOf(false) }
-
-    LazyColumn(
-        modifier = modifier
-            .fillMaxSize()
-            .padding(16.dp)
-            .testTag("exams_screen_content"),
-        verticalArrangement = Arrangement.spacedBy(16.dp)
-    ) {
-        item {
-            Card(
-                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer),
-                shape = RoundedCornerShape(18.dp),
-                modifier = Modifier.fillMaxWidth()
-            ) {
-                Row(
-                    modifier = Modifier
-                        .padding(16.dp)
-                        .fillMaxWidth(),
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(14.dp)
-                ) {
-                    Box(
-                        modifier = Modifier
-                            .size(48.dp)
-                            .clip(CircleShape)
-                            .background(MaterialTheme.colorScheme.primary),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Text(text = "📝", fontSize = 24.sp)
-                    }
-
-                    Column {
-                        Text(
-                            text = "اختبر نفسك (النماذج الوزارية) 🇾🇪",
-                            style = MaterialTheme.typography.titleLarge.copy(
-                                fontWeight = FontWeight.Bold,
-                                color = MaterialTheme.colorScheme.onPrimaryContainer
-                            )
-                        )
-                        Text(
-                            text = "اختبارات تدريبية تجريبية لقياس مدى استيعابك للمنهج مع تقرير تفصيلي بالحلول.",
-                            style = MaterialTheme.typography.bodySmall.copy(
-                                color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.85f),
-                                fontSize = 12.sp
-                            )
-                        )
+    Scaffold(
+        topBar = {
+            TopAppBar(
+                title = { Text("الاختبارات الوزارية والأتمتة") },
+                actions = {
+                    IconButton(onClick = { onNavigate(Screen.QuestionBank) }) {
+                        Icon(Icons.Default.ListAlt, contentDescription = "بنك الأسئلة")
                     }
                 }
-            }
-        }
-
-        // Action: Random Exam
-        item {
-            Button(
-                onClick = { showRandomExamDialog = true },
-                colors = ButtonDefaults.buttonColors(containerColor = AmberSecondary),
-                shape = RoundedCornerShape(14.dp),
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(48.dp)
-                    .testTag("create_random_exam_button")
-            ) {
-                Icon(imageVector = Icons.Default.Shuffle, contentDescription = null)
-                Spacer(modifier = Modifier.width(8.dp))
-                Text(
-                    text = "إنشاء اختبار عشوائي مخصص 🎲",
-                    fontWeight = FontWeight.Bold,
-                    fontSize = 14.sp
-                )
-            }
-        }
-
-        // Exams List
-        item {
-            Text(
-                text = "النماذج المتوفرة:",
-                style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold)
             )
         }
-
-        items(exams) { exam ->
-            val isLocked = exam.isPremium && !isSubscribed
-            Card(
-                onClick = {
-                    if (isLocked) {
-                        viewModel.navigateTo(Screen.Subscription)
-                    } else {
-                        viewModel.startExam(exam)
-                    }
-                },
-                colors = CardDefaults.cardColors(
-                    containerColor = MaterialTheme.colorScheme.surface
-                ),
-                shape = RoundedCornerShape(14.dp),
-                elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
-                modifier = Modifier.fillMaxWidth()
-            ) {
-                Row(
-                    modifier = Modifier
-                        .padding(16.dp)
-                        .fillMaxWidth(),
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.SpaceBetween
+    ) { padding ->
+        LazyColumn(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(padding)
+                .padding(horizontal = 16.dp),
+            verticalArrangement = Arrangement.spacedBy(14.dp),
+            contentPadding = PaddingValues(top = 8.dp, bottom = 24.dp)
+        ) {
+            item {
+                Card(
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(16.dp),
+                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer)
                 ) {
-                    Column(modifier = Modifier.weight(1f)) {
+                    Column(
+                        modifier = Modifier.padding(18.dp),
+                        verticalArrangement = Arrangement.spacedBy(10.dp)
+                    ) {
                         Text(
-                            text = exam.title,
-                            style = MaterialTheme.typography.titleMedium.copy(
-                                fontWeight = FontWeight.Bold,
-                                fontSize = 15.sp
-                            )
+                            text = "🎯 نظام اختبارات الأتمتة الوزارية",
+                            style = MaterialTheme.typography.titleMedium,
+                            fontWeight = FontWeight.Bold,
+                            color = MaterialTheme.colorScheme.onPrimaryContainer
                         )
-                        Spacer(modifier = Modifier.height(4.dp))
-                        Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                            Text(
-                                text = "⏱️ ${exam.durationMinutes} دقيقة",
-                                style = MaterialTheme.typography.bodySmall.copy(color = MaterialTheme.colorScheme.onSurfaceVariant)
-                            )
-                            Text(
-                                text = "❓ ${exam.totalQuestions} أسئلة",
-                                style = MaterialTheme.typography.bodySmall.copy(color = MaterialTheme.colorScheme.onSurfaceVariant)
-                            )
-                        }
-                    }
-
-                    if (isLocked) {
-                        Surface(
-                            shape = RoundedCornerShape(8.dp),
-                            color = CardGold
-                        ) {
-                            Text(
-                                text = "مدفوع 🔒",
-                                color = AmberSecondary,
-                                style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold),
-                                modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
-                            )
-                        }
-                    } else {
+                        Text(
+                            text = "تدرب على نماذج مطابقة تماماً لاختبارات وزارة التربية والتعليم في صنعاء وعدن مع تصحيح فوري وحساب النسبة المئوية.",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.8f)
+                        )
                         Button(
-                            onClick = { viewModel.startExam(exam) },
-                            shape = RoundedCornerShape(10.dp),
-                            contentPadding = PaddingValues(horizontal = 14.dp, vertical = 6.dp)
+                            onClick = { viewModel.startRandomExam(subjects.firstOrNull()?.id ?: 1L, 10) },
+                            modifier = Modifier.fillMaxWidth(),
+                            shape = RoundedCornerShape(10.dp)
                         ) {
-                            Text(text = "ابدأ", fontWeight = FontWeight.Bold)
+                            Icon(Icons.Default.PlayArrow, contentDescription = null)
+                            Spacer(modifier = Modifier.width(6.dp))
+                            Text("بدء اختبار تجريبي عشوائي (10 أسئلة)")
                         }
                     }
                 }
             }
-        }
 
-        // Previous Results
-        if (results.isNotEmpty()) {
             item {
-                Spacer(modifier = Modifier.height(10.dp))
-                Text(
-                    text = "نتائجك السابقة:",
-                    style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold)
-                )
+                Text("النماذج الوزارية المتاحة:", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
             }
 
-            items(results) { res ->
+            items(exams) { exam ->
                 Card(
-                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)),
-                    shape = RoundedCornerShape(12.dp),
-                    modifier = Modifier.fillMaxWidth()
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clickable { viewModel.startExam(exam) },
+                    shape = RoundedCornerShape(14.dp),
+                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)
                 ) {
                     Row(
                         modifier = Modifier
-                            .padding(14.dp)
-                            .fillMaxWidth(),
+                            .fillMaxWidth()
+                            .padding(16.dp),
                         horizontalArrangement = Arrangement.SpaceBetween,
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         Column {
-                            Text(text = res.examTitle, fontWeight = FontWeight.Bold, fontSize = 14.sp)
+                            Text(exam.title, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+                            Spacer(modifier = Modifier.height(4.dp))
                             Text(
-                                text = "صحيحة: ${res.correctCount} • خاطئة: ${res.wrongCount}",
-                                style = MaterialTheme.typography.bodySmall.copy(color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                text = "⏱️ ${exam.durationMinutes} دقيقة • 📝 ${exam.totalQuestions} سؤالاً",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = Color.Gray
                             )
                         }
-
-                        Surface(
-                            shape = RoundedCornerShape(8.dp),
-                            color = if (res.scorePercentage >= 50) Color(0xFFDCFCE7) else Color(0xFFFEE2E2)
+                        Button(
+                            onClick = { viewModel.startExam(exam) },
+                            shape = RoundedCornerShape(10.dp)
                         ) {
-                            Text(
-                                text = "${res.scorePercentage}%",
-                                style = MaterialTheme.typography.titleMedium.copy(
-                                    fontWeight = FontWeight.ExtraBold,
-                                    color = if (res.scorePercentage >= 50) SuccessGreen else ErrorRed
-                                ),
-                                modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp)
-                            )
+                            Text("بدء")
                         }
                     }
                 }
             }
         }
     }
+}
 
-    // Random Exam Dialog
-    if (showRandomExamDialog) {
-        var selectedSubjectId by remember { mutableStateOf(subjects.firstOrNull()?.id ?: 1L) }
-        var questionCount by remember { mutableStateOf(5) }
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun ExamSessionScreen(
+    viewModel: MainViewModel,
+    onNavigate: (Screen) -> Unit,
+    onBack: () -> Unit
+) {
+    val exam by viewModel.currentExam.collectAsState()
+    val questions by viewModel.examQuestions.collectAsState()
+    val answers by viewModel.userExamAnswers.collectAsState()
 
-        AlertDialog(
-            onDismissRequest = { showRandomExamDialog = false },
-            title = { Text("إنشاء اختبار عشوائي") },
-            text = {
-                Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                    Text("اختر المادة:")
-                    subjects.take(5).forEach { subj ->
+    var showSubmitDialog by remember { mutableStateOf(false) }
+
+    Scaffold(
+        topBar = {
+            TopAppBar(
+                title = { Text(exam?.title ?: "جلسة الاختبار") },
+                navigationIcon = {
+                    IconButton(onClick = onBack) {
+                        Icon(Icons.Default.Close, contentDescription = "إنهاء")
+                    }
+                },
+                actions = {
+                    TextButton(onClick = { showSubmitDialog = true }) {
+                        Text("تسليم الاختبار", fontWeight = FontWeight.Bold)
+                    }
+                }
+            )
+        }
+    ) { padding ->
+        LazyColumn(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(padding)
+                .padding(horizontal = 16.dp),
+            verticalArrangement = Arrangement.spacedBy(16.dp),
+            contentPadding = PaddingValues(top = 8.dp, bottom = 32.dp)
+        ) {
+            itemsIndexed(questions) { index, q ->
+                Card(
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(14.dp),
+                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)
+                ) {
+                    Column(
+                        modifier = Modifier.padding(16.dp),
+                        verticalArrangement = Arrangement.spacedBy(10.dp)
+                    ) {
                         Row(
-                            verticalAlignment = Alignment.CenterVertically,
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .clickable { selectedSubjectId = subj.id }
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween
                         ) {
-                            RadioButton(
-                                selected = selectedSubjectId == subj.id,
-                                onClick = { selectedSubjectId = subj.id }
+                            Text(
+                                text = "سؤال ${index + 1} من ${questions.size}",
+                                style = MaterialTheme.typography.labelMedium,
+                                fontWeight = FontWeight.Bold,
+                                color = MaterialTheme.colorScheme.primary
                             )
-                            Spacer(modifier = Modifier.width(6.dp))
-                            Text(subj.name)
+                            Text(
+                                text = if (q.type == "TRUE_FALSE") "صح أو خطأ" else "اختيار من متعدد",
+                                style = MaterialTheme.typography.labelSmall,
+                                color = Color.Gray
+                            )
+                        }
+
+                        Text(q.questionText, style = MaterialTheme.typography.bodyLarge, fontWeight = FontWeight.SemiBold)
+
+                        val currentAns = answers[q.id] ?: ""
+
+                        if (q.type == "TRUE_FALSE") {
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.spacedBy(10.dp)
+                            ) {
+                                Button(
+                                    onClick = { viewModel.setExamAnswer(q.id, "TRUE") },
+                                    modifier = Modifier.weight(1f),
+                                    colors = ButtonDefaults.buttonColors(
+                                        containerColor = if (currentAns == "TRUE") MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surface
+                                    ),
+                                    border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline)
+                                ) {
+                                    Text(
+                                        "صح (✓)",
+                                        color = if (currentAns == "TRUE") MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurface
+                                    )
+                                }
+                                Button(
+                                    onClick = { viewModel.setExamAnswer(q.id, "FALSE") },
+                                    modifier = Modifier.weight(1f),
+                                    colors = ButtonDefaults.buttonColors(
+                                        containerColor = if (currentAns == "FALSE") MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surface
+                                    ),
+                                    border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline)
+                                ) {
+                                    Text(
+                                        "خطأ (✗)",
+                                        color = if (currentAns == "FALSE") MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurface
+                                    )
+                                }
+                            }
+                        } else {
+                            // Multiple choice A, B, C, D
+                            val options = listOf("A" to q.optionA, "B" to q.optionB, "C" to q.optionC, "D" to q.optionD)
+                            Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                                options.filter { it.second.isNotBlank() }.forEach { opt ->
+                                    val isSelected = currentAns == opt.first
+                                    Surface(
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .clickable { viewModel.setExamAnswer(q.id, opt.first) },
+                                        shape = RoundedCornerShape(10.dp),
+                                        color = if (isSelected) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surface,
+                                        border = BorderStroke(1.dp, if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outlineVariant)
+                                    ) {
+                                        Row(
+                                            modifier = Modifier.padding(12.dp),
+                                            verticalAlignment = Alignment.CenterVertically,
+                                            horizontalArrangement = Arrangement.spacedBy(10.dp)
+                                        ) {
+                                            RadioButton(
+                                                selected = isSelected,
+                                                onClick = { viewModel.setExamAnswer(q.id, opt.first) }
+                                            )
+                                            Text(
+                                                text = "${opt.first}) ${opt.second}",
+                                                style = MaterialTheme.typography.bodyMedium,
+                                                fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal
+                                            )
+                                        }
+                                    }
+                                }
+                            }
                         }
                     }
-
-                    Text("عدد الأسئلة: $questionCount")
-                    Slider(
-                        value = questionCount.toFloat(),
-                        onValueChange = { questionCount = it.toInt() },
-                        valueRange = 3f..10f,
-                        steps = 6
-                    )
                 }
+            }
+
+            item {
+                Button(
+                    onClick = { showSubmitDialog = true },
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(50.dp),
+                    shape = RoundedCornerShape(12.dp)
+                ) {
+                    Text("تسليم الإجابات وإنهاء الاختبار", fontWeight = FontWeight.Bold)
+                }
+            }
+        }
+    }
+
+    if (showSubmitDialog) {
+        AlertDialog(
+            onDismissRequest = { showSubmitDialog = false },
+            title = { Text("تسليم الاختبار") },
+            text = {
+                val answered = answers.size
+                Text("لقد قمت بالإجابة على $answered من أصل ${questions.size} أسئلة. هل أنت متأكد من رغبتك في تسليم الاختبار الآن؟")
             },
             confirmButton = {
                 Button(
                     onClick = {
-                        showRandomExamDialog = false
-                        viewModel.startRandomExam(selectedSubjectId, questionCount)
+                        showSubmitDialog = false
+                        viewModel.submitExam()
                     }
                 ) {
-                    Text("ابدأ الاختبار")
+                    Text("تأكيد التسليم")
                 }
             },
             dismissButton = {
-                TextButton(onClick = { showRandomExamDialog = false }) {
+                TextButton(onClick = { showSubmitDialog = false }) {
                     Text("إلغاء")
                 }
             }
@@ -297,527 +308,172 @@ fun ExamsScreen(
     }
 }
 
-// -------------------------------------------------------------
-// EXAM SESSION SCREEN
-// -------------------------------------------------------------
-@Composable
-fun ExamSessionScreen(
-    viewModel: MainViewModel,
-    modifier: Modifier = Modifier
-) {
-    val exam by viewModel.currentExam.collectAsState()
-    val questions by viewModel.examQuestions.collectAsState()
-    val userAnswers by viewModel.userExamAnswers.collectAsState()
-
-    var currentQuestionIndex by remember { mutableStateOf(0) }
-
-    if (questions.isEmpty()) {
-        Box(modifier = modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-            CircularProgressIndicator()
-        }
-        return
-    }
-
-    val q = questions.getOrNull(currentQuestionIndex) ?: return
-
-    Column(
-        modifier = modifier
-            .fillMaxSize()
-            .padding(16.dp)
-            .testTag("exam_session_content"),
-        verticalArrangement = Arrangement.SpaceBetween
-    ) {
-        // Header
-        Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Text(
-                    text = exam?.title ?: "الاختبار",
-                    style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold)
-                )
-                Surface(
-                    shape = RoundedCornerShape(8.dp),
-                    color = MaterialTheme.colorScheme.primaryContainer
-                ) {
-                    Text(
-                        text = "السؤال ${currentQuestionIndex + 1} من ${questions.size}",
-                        style = MaterialTheme.typography.labelMedium.copy(
-                            fontWeight = FontWeight.Bold,
-                            color = MaterialTheme.colorScheme.onPrimaryContainer
-                        ),
-                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
-                    )
-                }
-            }
-
-            LinearProgressIndicator(
-                progress = { (currentQuestionIndex + 1).toFloat() / questions.size },
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(6.dp)
-                    .clip(CircleShape),
-                color = MaterialTheme.colorScheme.primary
-            )
-        }
-
-        val options = remember(q) {
-            q.options.split("||").map { it.trim() }.filter { it.isNotBlank() }
-        }
-
-        // Question Card
-        Card(
-            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-            shape = RoundedCornerShape(16.dp),
-            elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
-            modifier = Modifier
-                .fillMaxWidth()
-                .weight(1f)
-                .padding(vertical = 16.dp)
-        ) {
-            LazyColumn(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .padding(16.dp),
-                verticalArrangement = Arrangement.spacedBy(14.dp)
-            ) {
-                item {
-                    Text(
-                        text = q.questionText,
-                        style = MaterialTheme.typography.titleMedium.copy(
-                            fontWeight = FontWeight.Bold,
-                            fontSize = 16.sp,
-                            lineHeight = 24.sp
-                        )
-                    )
-                }
-
-                items(options) { opt ->
-                    val isSelected = userAnswers[q.id] == opt
-                    Surface(
-                        onClick = { viewModel.setExamAnswer(q.id, opt) },
-                        shape = RoundedCornerShape(12.dp),
-                        color = if (isSelected) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
-                        border = if (isSelected) androidx.compose.foundation.BorderStroke(1.5.dp, MaterialTheme.colorScheme.primary) else null,
-                        modifier = Modifier.fillMaxWidth()
-                    ) {
-                        Row(
-                            modifier = Modifier
-                                .padding(14.dp)
-                                .fillMaxWidth(),
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.spacedBy(10.dp)
-                        ) {
-                            RadioButton(
-                                selected = isSelected,
-                                onClick = { viewModel.setExamAnswer(q.id, opt) }
-                            )
-                            Text(
-                                text = opt,
-                                style = MaterialTheme.typography.bodyMedium.copy(
-                                    fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal,
-                                    fontSize = 14.sp
-                                )
-                            )
-                        }
-                    }
-                }
-            }
-        }
-
-        // Navigation Footer Buttons
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.spacedBy(10.dp)
-        ) {
-            if (currentQuestionIndex > 0) {
-                OutlinedButton(
-                    onClick = { currentQuestionIndex-- },
-                    shape = RoundedCornerShape(12.dp),
-                    modifier = Modifier
-                        .weight(1f)
-                        .height(48.dp)
-                ) {
-                    Text("السابق")
-                }
-            }
-
-            if (currentQuestionIndex < questions.size - 1) {
-                Button(
-                    onClick = { currentQuestionIndex++ },
-                    shape = RoundedCornerShape(12.dp),
-                    modifier = Modifier
-                        .weight(1f)
-                        .height(48.dp)
-                ) {
-                    Text("التالي")
-                }
-            } else {
-                Button(
-                    onClick = { viewModel.submitExam() },
-                    colors = ButtonDefaults.buttonColors(containerColor = SuccessGreen),
-                    shape = RoundedCornerShape(12.dp),
-                    modifier = Modifier
-                        .weight(1f)
-                        .height(48.dp)
-                        .testTag("submit_exam_button")
-                ) {
-                    Text("إنهاء الاختبار وتسليم الإجابات ✅", fontWeight = FontWeight.Bold)
-                }
-            }
-        }
-    }
-}
-
-// -------------------------------------------------------------
-// EXAM RESULT SCREEN
-// -------------------------------------------------------------
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ExamResultScreen(
     viewModel: MainViewModel,
-    modifier: Modifier = Modifier
+    onNavigate: (Screen) -> Unit
 ) {
     val result by viewModel.currentExamResult.collectAsState()
-    val questions by viewModel.examQuestions.collectAsState()
-    val userAnswers by viewModel.userExamAnswers.collectAsState()
+    val exam by viewModel.currentExam.collectAsState()
 
-    val res = result ?: return
+    val currentResult = result ?: return
 
-    LazyColumn(
-        modifier = modifier
-            .fillMaxSize()
-            .padding(16.dp)
-            .testTag("exam_result_content"),
-        verticalArrangement = Arrangement.spacedBy(16.dp)
-    ) {
-        // Result Score Card
-        item {
-            Card(
-                colors = CardDefaults.cardColors(
-                    containerColor = if (res.scorePercentage >= 50) Color(0xFFDCFCE7) else Color(0xFFFEE2E2)
-                ),
-                shape = RoundedCornerShape(20.dp),
-                modifier = Modifier.fillMaxWidth()
-            ) {
-                Column(
-                    modifier = Modifier
-                        .padding(24.dp)
-                        .fillMaxWidth(),
-                    horizontalAlignment = Alignment.CenterHorizontally,
-                    verticalArrangement = Arrangement.spacedBy(10.dp)
-                ) {
-                    Text(
-                        text = if (res.scorePercentage >= 50) "🎉 مبارك لك النجاح!" else "💪 حاول مرة أخرى وراجع الشروحات",
-                        style = MaterialTheme.typography.titleLarge.copy(
-                            fontWeight = FontWeight.Bold,
-                            color = if (res.scorePercentage >= 50) Color(0xFF14532D) else Color(0xFF7F1D1D)
-                        )
-                    )
-
-                    Text(
-                        text = "${res.scorePercentage}%",
-                        style = MaterialTheme.typography.displayMedium.copy(
-                            fontWeight = FontWeight.ExtraBold,
-                            color = if (res.scorePercentage >= 50) SuccessGreen else ErrorRed
-                        )
-                    )
-
-                    Text(
-                        text = "الإجابات الصحيحة: ${res.correctCount} من ${res.totalQuestions}",
-                        style = MaterialTheme.typography.bodyMedium.copy(
-                            fontWeight = FontWeight.SemiBold,
-                            color = MaterialTheme.colorScheme.onSurface
-                        )
-                    )
+    Scaffold(
+        topBar = {
+            TopAppBar(
+                title = { Text("نتيجة الاختبار") },
+                navigationIcon = {
+                    IconButton(onClick = { onNavigate(Screen.Home) }) {
+                        Icon(Icons.Default.Home, contentDescription = "الرئيسية")
+                    }
                 }
-            }
-        }
-
-        // Return Home or Retake
-        item {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(10.dp)
-            ) {
-                Button(
-                    onClick = { viewModel.navigateTo(Screen.Exams) },
-                    shape = RoundedCornerShape(12.dp),
-                    modifier = Modifier.weight(1f)
-                ) {
-                    Text("قائمة الاختبارات")
-                }
-                OutlinedButton(
-                    onClick = { viewModel.navigateTo(Screen.Home) },
-                    shape = RoundedCornerShape(12.dp),
-                    modifier = Modifier.weight(1f)
-                ) {
-                    Text("الرئيسية")
-                }
-            }
-        }
-
-        // Detailed Review of Each Question
-        item {
-            Text(
-                text = "مراجعة تفصيلية للإجابات:",
-                style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold)
             )
         }
-
-        items(questions) { q ->
-            val userAns = userAnswers[q.id]
-            val isCorrect = userAns != null && userAns.equals(q.correctAnswer.trim(), ignoreCase = true)
-
+    ) { padding ->
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(padding)
+                .padding(20.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.spacedBy(20.dp)
+        ) {
             Card(
-                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-                shape = RoundedCornerShape(14.dp),
-                elevation = CardDefaults.cardElevation(defaultElevation = 1.dp),
-                modifier = Modifier.fillMaxWidth()
+                modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(20.dp),
+                colors = CardDefaults.cardColors(
+                    containerColor = if (currentResult.isPassed) Color(0xFFF0FDF4) else Color(0xFFFEF2F2)
+                ),
+                border = BorderStroke(2.dp, if (currentResult.isPassed) Color(0xFF10B981) else Color(0xFFEF4444))
             ) {
                 Column(
-                    modifier = Modifier
-                        .padding(14.dp)
-                        .fillMaxWidth(),
-                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                    modifier = Modifier.padding(24.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.spacedBy(12.dp)
                 ) {
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Text(
-                            text = q.questionText,
-                            style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Bold),
-                            modifier = Modifier.weight(1f)
-                        )
-                        Icon(
-                            imageVector = if (isCorrect) Icons.Default.CheckCircle else Icons.Default.Cancel,
-                            contentDescription = null,
-                            tint = if (isCorrect) SuccessGreen else ErrorRed
-                        )
-                    }
-
-                    Text(
-                        text = "إجابتك: ${userAns ?: "لم يتم الإجابة"}",
-                        style = MaterialTheme.typography.bodySmall.copy(
-                            color = if (isCorrect) SuccessGreen else ErrorRed,
-                            fontWeight = FontWeight.SemiBold
-                        )
+                    Icon(
+                        imageVector = if (currentResult.isPassed) Icons.Default.CheckCircle else Icons.Default.Cancel,
+                        contentDescription = null,
+                        modifier = Modifier.size(64.dp),
+                        tint = if (currentResult.isPassed) Color(0xFF10B981) else Color(0xFFEF4444)
                     )
 
-                    if (!isCorrect) {
-                        Text(
-                            text = "الإجابة الصحيحة: ${q.correctAnswer}",
-                            style = MaterialTheme.typography.bodySmall.copy(
-                                color = SuccessGreen,
-                                fontWeight = FontWeight.Bold
-                            )
-                        )
-                    }
+                    Text(
+                        text = if (currentResult.isPassed) "مبارك! لقد اجتزت الاختبار بنجاح 🎉" else "للأسف، لم تجتز الاختبار، حاول مرة أخرى 💪",
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.Bold,
+                        color = if (currentResult.isPassed) Color(0xFF15803D) else Color(0xFFB91C1C)
+                    )
 
-                    Surface(
-                        shape = RoundedCornerShape(8.dp),
-                        color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.6f),
-                        modifier = Modifier.fillMaxWidth()
+                    Text(
+                        text = "${currentResult.score}%",
+                        fontSize = 48.sp,
+                        fontWeight = FontWeight.ExtraBold,
+                        color = if (currentResult.isPassed) Color(0xFF10B981) else Color(0xFFEF4444)
+                    )
+
+                    Divider()
+
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceEvenly
                     ) {
-                        Text(
-                            text = "الشرح والتوضيح:\n${q.explanation}",
-                            style = MaterialTheme.typography.bodySmall.copy(fontSize = 12.sp, lineHeight = 18.sp),
-                            modifier = Modifier.padding(10.dp)
-                        )
+                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                            Text("الإجابات الصحيحة", style = MaterialTheme.typography.bodySmall, color = Color.Gray)
+                            Text("${currentResult.correctAnswers}", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold, color = Color(0xFF10B981))
+                        }
+                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                            Text("الإجابات الخاطئة", style = MaterialTheme.typography.bodySmall, color = Color.Gray)
+                            Text("${currentResult.wrongAnswers}", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold, color = Color(0xFFEF4444))
+                        }
+                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                            Text("إجمالي الأسئلة", style = MaterialTheme.typography.bodySmall, color = Color.Gray)
+                            Text("${currentResult.totalQuestions}", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+                        }
                     }
                 }
+            }
+
+            Button(
+                onClick = { onNavigate(Screen.Exams) },
+                modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(12.dp)
+            ) {
+                Text("العودة لقائمة الاختبارات")
+            }
+
+            OutlinedButton(
+                onClick = { onNavigate(Screen.Home) },
+                modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(12.dp)
+            ) {
+                Text("الصفحة الرئيسية")
             }
         }
     }
 }
 
-// -------------------------------------------------------------
-// QUESTION BANK SCREEN
-// -------------------------------------------------------------
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun QuestionBankScreen(
     viewModel: MainViewModel,
-    modifier: Modifier = Modifier
+    onBack: () -> Unit
 ) {
     val questions by viewModel.allQuestions.collectAsState()
-    val subjects by viewModel.allSubjects.collectAsState()
+    var search by remember { mutableStateOf("") }
 
-    var filterSubjectId by remember { mutableStateOf<Long?>(null) }
-    var filterDifficulty by remember { mutableStateOf<String?>(null) }
-
-    val filteredQuestions = remember(questions, filterSubjectId, filterDifficulty) {
-        questions.filter { q ->
-            (filterSubjectId == null || q.subjectId == filterSubjectId) &&
-            (filterDifficulty == null || q.difficulty == filterDifficulty)
-        }
+    val filtered = questions.filter {
+        search.isBlank() || it.questionText.contains(search)
     }
 
-    LazyColumn(
-        modifier = modifier
-            .fillMaxSize()
-            .padding(16.dp)
-            .testTag("question_bank_content"),
-        verticalArrangement = Arrangement.spacedBy(14.dp)
-    ) {
-        item {
-            Card(
-                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer),
-                shape = RoundedCornerShape(16.dp),
-                modifier = Modifier.fillMaxWidth()
-            ) {
-                Row(
-                    modifier = Modifier
-                        .padding(16.dp)
-                        .fillMaxWidth(),
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(12.dp)
-                ) {
-                    Box(
-                        modifier = Modifier
-                            .size(44.dp)
-                            .clip(CircleShape)
-                            .background(MaterialTheme.colorScheme.primary),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Text(text = "📖", fontSize = 22.sp)
-                    }
-
-                    Column {
-                        Text(
-                            text = "بنك أسئلة الثالث الثانوي اليمني",
-                            style = MaterialTheme.typography.titleMedium.copy(
-                                fontWeight = FontWeight.Bold,
-                                color = MaterialTheme.colorScheme.onPrimaryContainer
-                            )
-                        )
-                        Text(
-                            text = "تصفح مئات الأسئلة المصنفة حسب المادة ومستوى الصعوبة.",
-                            style = MaterialTheme.typography.bodySmall.copy(
-                                color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.85f)
-                            )
-                        )
+    Scaffold(
+        topBar = {
+            TopAppBar(
+                title = { Text("بنك الأسئلة الوزارية الشامل") },
+                navigationIcon = {
+                    IconButton(onClick = onBack) {
+                        Icon(Icons.Default.ArrowForward, contentDescription = "رجوع")
                     }
                 }
-            }
-        }
-
-        // Filters Row
-        item {
-            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                Text(
-                    text = "فلترة حسب المادة:",
-                    style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Bold)
-                )
-                androidx.compose.foundation.lazy.LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    item {
-                        FilterChip(
-                            selected = filterSubjectId == null,
-                            onClick = { filterSubjectId = null },
-                            label = { Text("الكل") }
-                        )
-                    }
-                    items(subjects) { s ->
-                        FilterChip(
-                            selected = filterSubjectId == s.id,
-                            onClick = { filterSubjectId = s.id },
-                            label = { Text(s.name) }
-                        )
-                    }
-                }
-            }
-        }
-
-        item {
-            Text(
-                text = "الأسئلة (${filteredQuestions.size}):",
-                style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold)
             )
         }
+    ) { padding ->
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(padding)
+                .padding(horizontal = 16.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
+            OutlinedTextField(
+                value = search,
+                onValueChange = { search = it },
+                modifier = Modifier.fillMaxWidth(),
+                placeholder = { Text("بحث في نصوص الأسئلة الوزارية...") },
+                leadingIcon = { Icon(Icons.Default.Search, contentDescription = null) },
+                shape = RoundedCornerShape(12.dp)
+            )
 
-        items(filteredQuestions) { q ->
-            var showSolution by remember { mutableStateOf(false) }
-
-            Card(
-                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-                shape = RoundedCornerShape(14.dp),
-                elevation = CardDefaults.cardElevation(defaultElevation = 1.dp),
-                modifier = Modifier.fillMaxWidth()
+            LazyColumn(
+                modifier = Modifier.fillMaxSize(),
+                verticalArrangement = Arrangement.spacedBy(10.dp),
+                contentPadding = PaddingValues(bottom = 24.dp)
             ) {
-                Column(
-                    modifier = Modifier
-                        .padding(14.dp)
-                        .fillMaxWidth(),
-                    verticalArrangement = Arrangement.spacedBy(8.dp)
-                ) {
-                    Row(
+                items(filtered) { q ->
+                    Card(
                         modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween
+                        shape = RoundedCornerShape(12.dp),
+                        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)
                     ) {
-                        Surface(
-                            shape = RoundedCornerShape(6.dp),
-                            color = when (q.difficulty) {
-                                "EASY" -> Color(0xFFDCFCE7)
-                                "HARD" -> Color(0xFFFEE2E2)
-                                else -> Color(0xFFFEF3C7)
-                            }
+                        Column(
+                            modifier = Modifier.padding(14.dp),
+                            verticalArrangement = Arrangement.spacedBy(6.dp)
                         ) {
-                            Text(
-                                text = when (q.difficulty) {
-                                    "EASY" -> "سهل"
-                                    "HARD" -> "متقدم"
-                                    else -> "متوسط"
-                                },
-                                style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold),
-                                modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
-                            )
-                        }
-
-                        Text(
-                            text = when (q.questionType) {
-                                "MCQ" -> "اختيار من متعدد"
-                                "TRUE_FALSE" -> "صح وخطأ"
-                                else -> "سؤال قصير"
-                            },
-                            style = MaterialTheme.typography.labelSmall.copy(color = MaterialTheme.colorScheme.onSurfaceVariant)
-                        )
-                    }
-
-                    Text(
-                        text = q.questionText,
-                        style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.SemiBold, fontSize = 14.sp)
-                    )
-
-                    OutlinedButton(
-                        onClick = { showSolution = !showSolution },
-                        shape = RoundedCornerShape(8.dp),
-                        contentPadding = PaddingValues(horizontal = 10.dp, vertical = 4.dp),
-                        modifier = Modifier.height(34.dp)
-                    ) {
-                        Text(text = if (showSolution) "إخفاء الحل" else "عرض الإجابة والتفسير", fontSize = 12.sp)
-                    }
-
-                    AnimatedVisibility(visible = showSolution) {
-                        Surface(
-                            shape = RoundedCornerShape(8.dp),
-                            color = Color(0xFFECFDF5),
-                            modifier = Modifier.fillMaxWidth()
-                        ) {
-                            Column(modifier = Modifier.padding(10.dp)) {
-                                Text(
-                                    text = "الإجابة الصحيحة: ${q.correctAnswer}",
-                                    fontWeight = FontWeight.Bold,
-                                    color = TealAccent,
-                                    fontSize = 13.sp
-                                )
-                                Spacer(modifier = Modifier.height(4.dp))
-                                Text(
-                                    text = q.explanation,
-                                    fontSize = 12.sp,
-                                    color = MaterialTheme.colorScheme.onSurface
-                                )
+                            Text(q.questionText, fontWeight = FontWeight.Bold, style = MaterialTheme.typography.bodyMedium)
+                            Text("الإجابة الصحيحة: ${q.correctOption}", color = Color(0xFF16A34A), fontWeight = FontWeight.SemiBold, style = MaterialTheme.typography.bodySmall)
+                            if (q.explanation.isNotEmpty()) {
+                                Text("التعليل الوزاري: ${q.explanation}", color = Color.Gray, style = MaterialTheme.typography.bodySmall)
                             }
                         }
                     }

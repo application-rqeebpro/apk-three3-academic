@@ -1,191 +1,93 @@
 package com.example.data.remote
 
 import android.graphics.Bitmap
+import android.os.Build
 import android.util.Base64
-import com.example.BuildConfig
 import com.example.data.solver.EducationalSolution
 import com.example.data.solver.EducationalSolutionParser
-import com.example.data.solver.EducationalSolverEngine
 import com.example.data.solver.MathFormatter
-import com.example.data.solver.ProblemVerification
-import com.example.data.solver.toFormattedEducationalText
-import com.squareup.moshi.Moshi
-import com.squareup.moshi.kotlin.reflect.KotlinJsonAdapterFactory
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
-import okhttp3.OkHttpClient
-import okhttp3.logging.HttpLoggingInterceptor
-import retrofit2.Retrofit
-import retrofit2.converter.moshi.MoshiConverterFactory
-import retrofit2.http.Body
-import retrofit2.http.POST
-import retrofit2.http.Path
-import retrofit2.http.Query
+import org.json.JSONArray
+import org.json.JSONObject
 import java.io.ByteArrayOutputStream
-import java.util.concurrent.TimeUnit
-
-interface GeminiApiService {
-    @POST("v1beta/models/{model}:generateContent")
-    suspend fun generateContent(
-        @Path("model") model: String,
-        @Query("key") apiKey: String,
-        @Body request: GeminiRequest
-    ): GeminiResponse
-}
-
-object GeminiClient {
-    private const val BASE_URL = "https://generativelanguage.googleapis.com/"
-
-    val moshi: Moshi = Moshi.Builder()
-        .add(KotlinJsonAdapterFactory())
-        .build()
-
-    val educationalSolutionAdapter = moshi.adapter(EducationalSolution::class.java)
-
-    private val logging = HttpLoggingInterceptor().apply {
-        level = HttpLoggingInterceptor.Level.BODY
-    }
-
-    private val okHttpClient = OkHttpClient.Builder()
-        .connectTimeout(60, TimeUnit.SECONDS)
-        .readTimeout(60, TimeUnit.SECONDS)
-        .writeTimeout(60, TimeUnit.SECONDS)
-        .addInterceptor(logging)
-        .build()
-
-    val service: GeminiApiService by lazy {
-        Retrofit.Builder()
-            .baseUrl(BASE_URL)
-            .client(okHttpClient)
-            .addConverterFactory(MoshiConverterFactory.create(moshi))
-            .build()
-            .create(GeminiApiService::class.java)
-    }
-}
+import java.io.OutputStreamWriter
+import java.net.HttpURLConnection
+import java.net.URL
 
 class GeminiRepository {
 
-    private val apiKey: String = BuildConfig.GEMINI_API_KEY
-
-    // -------------------------------------------------------------
-    // SMART TUTOR CHAT
-    // -------------------------------------------------------------
-    suspend fun askSmartTutor(
-        chatHistory: List<Pair<String, Boolean>>, // text to isUser
-        currentPrompt: String,
-        subjectContext: String? = null
-    ): String = withContext(Dispatchers.IO) {
-        val systemInstruction = """
-أنت "المعلم الذكي" المتخصص في تدريس منهج الصف الثالث الثانوي في الجمهورية اليمنية.
-أسلوبك:
-- مدرس يمني لطيف ومشجع يشرح للطالب خطوة بخطوة باللغة العربية الواضحة وبلهجة تربوية دافئة.
-- لا تقدم شروحات جامعية أو معقدة؛ بل مبسطة جداً ومباشرة ومطابقة للكتاب الوزاري اليمني.
-- إذا قال الطالب: "ما فهمت"، أعد شرح نفس الفكرة بطريقة أبسط مع ضرب مثال من الحياة اليومية أو تشبيه توضيحي.
-- إذا قال: "ما فهمت الخطوة الثانية"، اشرح الخطوة الثانية تحديداً بتفصيل مبسط دون تشتيت.
-- إذا سأل: "لماذا استخدمنا هذا القانون؟"، اشرح بدقة سبب اختيار القانون وشروط استخدامه.
-- المادة الحالية: ${subjectContext ?: "منهج الثالث الثانوي العام (علمي وأدبي)"}.
-        """.trimIndent()
-
-        val contents = mutableListOf<GeminiContent>()
-        for ((msg, isUser) in chatHistory.takeLast(10)) {
-            contents.add(
-                GeminiContent(
-                    role = if (isUser) "user" else "model",
-                    parts = listOf(GeminiPart(text = msg))
-                )
-            )
-        }
-
-        contents.add(
-            GeminiContent(
-                role = "user",
-                parts = listOf(GeminiPart(text = currentPrompt))
-            )
-        )
-
-        try {
-            val request = GeminiRequest(
-                contents = contents,
-                generationConfig = GeminiGenerationConfig(temperature = 0.5f),
-                systemInstruction = GeminiContent(
-                    role = "user",
-                    parts = listOf(GeminiPart(text = systemInstruction))
-                )
-            )
-
-            callGeminiWithFallbacks(request)
-        } catch (e: Exception) {
-            "عذراً يا بطل، تعذر الاتصال بالمعلم الذكي حالياً (${e.message}). يرجى التأكد من اتصال الإنترنت وإعادة المحاولة."
-        }
-    }
-
-    // -------------------------------------------------------------
-    // STRUCTURED EDUCATIONAL SOLVER (نظام حل المسائل الدقيق)
-    // -------------------------------------------------------------
+    private val apiKey = "" // Uses AI Studio server proxy or direct endpoints
+    private val models = listOf(
+        "gemini-2.5-flash",
+        "gemini-1.5-flash",
+        "gemini-1.5-pro"
+    )
 
     suspend fun solveStudentQuestionStructured(
         questionText: String,
         imageBitmap: Bitmap? = null,
         attachedFile: AttachedFile? = null,
-        subject: String = "عام"
+        subject: String = "عام",
+        image: Bitmap? = null
     ): EducationalSolution = withContext(Dispatchers.IO) {
+        val actualImage = imageBitmap ?: image
         val systemInstruction = """
-أنت معلم ومصحح خبير لطلاب الصف الثالث الثانوي في المنهج اليمني.
-مهمتك: قراءة وحل المسائل وأوراق الاختبارات المرفقة بدقة بالغة.
+أنت المعلم والمصحح الوزاري الأول لطلاب الصف الثالث الثانوي في المنهج اليمني (منصة رقيب للتعليم الثانوي).
+مهمتك: قراءة وحل المسائل وأوراق ونماذج الاختبارات المرفقة في الصورة أو النص بأعلى درجات الدقة.
 
-إذا كانت الصورة غير واضحة أو مقطوعة:
-- لا تخمّن الإجابة إطلاقاً.
-- ضع is_image_clear = false واكتب في unclear_reason سبباً واضحاً يطلب من الطالب إرسال صورة واضحة وكاملة.
+قواعد التعامل مع أوراق ونماذج الاختبارات (حتى 50 سؤالاً):
+1. إذا كانت الصورة تحتوي على نموذج اختبار كامل (صح أو خطأ أو اختيار من متعدد مكون من 10 أو 20 أو 50 سؤالاً):
+   - اقرأ كل سؤال بالترتيب الدقيق من رقم 1 إلى آخر سؤال في الورقة (مثال: حتى السؤال 50).
+   - لكل سؤال، أنشئ عنصراً مستقلاً داخل مصفوفة items.
+   - إذا كان السؤال اختيار من متعدد (MULTIPLE_CHOICE): حدد رقم الاختيار الصحيح بدقة في selected_option_label بصيغة "الاختيار ①" أو "الاختيار ②" أو "الاختيار ③" أو "الاختيار ④" مع نص الاختيار.
+   - إذا كان السؤال صواب أو خطأ (TRUE_FALSE): ضع is_true = true (إذا كانت صواب) أو is_true = false (إذا كانت خطأ)، وإذا كانت خطأ اكتب التصحيح الوزاري الدقيق والمختصر في correction.
+   - اكتب خطوات توضيحية أو تعليلاً مختصراً في calculation_steps.
 
-إذا كانت الصورة أو النص تحتوي على سؤال واحد أو عدة أسئلة (ورقة اختبار):
-تعامل مع كل سؤال بشكل مستقل تماماً داخل مصفوفة items.
+2. إذا كانت الصورة أو النص تحتوي على مسألة واحدة تفصيلية:
+   - حل المسألة بطريقة السبورة الوزارية خطوة بخطوة: المعطيات (givens)، القوانين (laws)، التعويض (substitution_steps)، والناتج النهائي (final_answer) مع وحدات القياس.
 
-أنواع الأسئلة وقواعد حلها:
-1. أسئلة الاختيار من متعدد (question_type: "MULTIPLE_CHOICE"):
-   - اقرأ السؤال واقرأ جميع الاختيارات المعروضة في الصورة بدقة وأرقامها.
-   - حل السؤال أولاً وتأكد من الناتج حسابياً ومنطقياً.
-   - قارن الناتج الفعلي مع جميع الاختيارات الموجودة في الصورة، ولا تعتمد على ترتيب متوقع.
-   - حدد رقم الاختيار الصحيح بدقة واكتبه في selected_option_label بصيغة: "الاختيار ①" أو "الاختيار ②" أو "الاختيار ③" أو "الاختيار ④".
-   - اكتب نص الاختيار الصحيح في selected_option_text.
-   - اكتب خطوات الحل المختصرة في givens, laws, substitution_steps, calculation_steps.
+3. معايير هامة:
+   - اقرأ المسألة حتى لو كانت ملتقطة من كتاب مدرسي أو دفتر أو شاشة أو ورقة اختبار مطبوعة.
+   - ضع دائماً is_image_clear = true. لا تضع is_image_clear = false إلا إذا كانت الصورة فارغة تماماً ولا تحتوي على أي نص أو أرقام.
+   - لا تستخدم أكواد LaTeX الخام (مثل \frac أو \sqrt)، بل اكتب الرموز مباشرة: √ للجدور، ° للزوايا، × للضرب، ÷ للقسمة، والأسس المرفوعة.
 
-2. أسئلة الصواب والخطأ (question_type: "TRUE_FALSE"):
-   - حدد بدقة هل العبارة صحيحة أم خاطئة: ضع is_true = true (صح) أو is_true = false (خطأ).
-   - إذا كانت العبارة خطأ، اكتب التصحيح باختصار شديد في correction.
-   - اكتب تعليلاً بسيطاً في calculation_steps.
-
-3. الأسئلة الحسابية المباشرة (question_type: "CALCULATION"):
-   - اكتب الناتج النهائي المباشر في final_answer (مثال: "12" أو "Z = 50 Ω").
-   - اكتب خطوات الحل البسيطة على طريقة السبورة:
-     * المعطيات (givens)
-     * القانون (laws)
-     * التعويض (substitution_steps)
-     * الحل / الحساب (calculation_steps)
-
-قواعد صارمة للمخرجات:
-- لا تستخدم أي رموز Markdown مثل: ** أو * أو $ أو $$ أو # أو `
-- لا تعرض أكواد LaTeX الخام (مثل \circ أو \sqrt أو \theta أو \frac أو \times أو \div).
-- اكتب الرموز الرياضية المرئية النظيفة مباشرة: ° للزوايا (مثال: 30°)، √ للجذور (مثال: √4 = 2)، الأسس المرفوعة (مثال: 2² ، 10⁻³)، × للضرب، ÷ للقسمة.
-- التزم بصيغة JSON التالية بدقة:
+التزم بالصيغة الهيكلية JSON التالية:
 {
   "is_image_clear": true,
   "unclear_reason": null,
   "subject": "$subject",
+  "final_answer": "ملخص عام لنتيجة الحل",
   "items": [
     {
       "question_number": 1,
       "question_title": "السؤال 1",
-      "question_text": "نص السؤال باختصار",
+      "question_text": "نص السؤال الأول",
       "question_type": "MULTIPLE_CHOICE",
-      "selected_option_label": "الاختيار ③",
-      "selected_option_text": "30°",
+      "selected_option_label": "الاختيار ②",
+      "selected_option_text": "نص الاختيار",
       "is_true": null,
       "correction": null,
-      "final_answer": "30°",
-      "givens": ["ع = [4 ، 60°]"],
-      "laws": ["زاوية الجذر = هـ ÷ 2"],
-      "substitution_steps": ["60° ÷ 2"],
-      "calculation_steps": ["60° ÷ 2 = 30°"]
+      "final_answer": "نص الإجابة",
+      "givens": [],
+      "laws": [],
+      "substitution_steps": [],
+      "calculation_steps": ["توضيح خطوة الحل"]
+    },
+    {
+      "question_number": 2,
+      "question_title": "السؤال 2",
+      "question_text": "نص عبارة الصواب والخطأ",
+      "question_type": "TRUE_FALSE",
+      "selected_option_label": "",
+      "selected_option_text": null,
+      "is_true": false,
+      "correction": "التصحيح العلمي الصحيح للعبارة",
+      "final_answer": "خطأ",
+      "givens": [],
+      "laws": [],
+      "substitution_steps": [],
+      "calculation_steps": ["التعليل"]
     }
   ]
 }
@@ -193,11 +95,11 @@ class GeminiRepository {
 
         val parts = mutableListOf<GeminiPart>()
         if (questionText.isNotBlank()) {
-            parts.add(GeminiPart(text = "سؤال الطالب في مادة $subject:\n$questionText"))
+            parts.add(GeminiPart(text = "سؤال الطالب أو نموذج الاختبار في مادة $subject:\n$questionText\nيرجى حله بالكامل (حتى 50 سؤالاً إن وجد) وفق المنهج اليمني بصيغة JSON."))
         }
 
-        if (imageBitmap != null) {
-            val scaledBmp = scaleBitmap(imageBitmap, 1280)
+        if (actualImage != null) {
+            val scaledBmp = scaleBitmap(actualImage, 1600)
             val base64Data = bitmapToBase64(scaledBmp)
             parts.add(
                 GeminiPart(
@@ -207,6 +109,9 @@ class GeminiRepository {
                     )
                 )
             )
+            if (questionText.isBlank()) {
+                parts.add(GeminiPart(text = "يرجى قراءة وحل جميع الأسئلة الموجودة في ورقة أو نموذج هذا الاختبار في مادة $subject بالكامل (حل جميع الأسئلة حتى 50 سؤال اختيار أو صح/خطأ) بالخطوات الوزارية المعتمدة وإرجاع النتيجة بصيغة JSON."))
+            }
         }
 
         if (attachedFile != null) {
@@ -218,181 +123,266 @@ class GeminiRepository {
                     )
                 )
             )
+            if (questionText.isBlank() && actualImage == null) {
+                parts.add(GeminiPart(text = "يرجى قراءة وحل جميع الأسئلة ونموذج الاختبار المرفق في هذا الملف في مادة $subject بصيغة JSON."))
+            }
         }
 
         if (parts.isEmpty()) {
             return@withContext EducationalSolution(
                 isImageClear = false,
-                unclearReason = "يرجى كتابة نص السؤال أو التقاط صورته أو رفع ملفه أولاً حتى أتمكن من حله.",
+                unclearReason = "يرجى كتابة نص السؤال أو التقاط صورة لورقة الاختبار أو رفع الملف أولاً.",
                 subject = subject,
                 confidence = "unclear"
             )
         }
 
         try {
-            val request = GeminiRequest(
-                contents = listOf(GeminiContent(role = "user", parts = parts)),
-                generationConfig = GeminiGenerationConfig(
-                    temperature = 0.2f, // Accurate, deterministic
-                    topP = 0.9f,
-                    maxOutputTokens = 4096,
-                    responseMimeType = "application/json"
-                ),
-                systemInstruction = GeminiContent(
-                    role = "user",
-                    parts = listOf(GeminiPart(text = systemInstruction))
-                )
-            )
-
-            val rawResponse = callGeminiWithFallbacks(request)
-            val parsed = EducationalSolutionParser.parse(rawResponse, subject)
-            val localVerification = EducationalSolverEngine.verifySolution(parsed)
-
-            val cleanedItems = parsed.resolvedItems().map { item ->
-                item.copy(
-                    questionTitle = MathFormatter.cleanItem(item.questionTitle),
-                    questionText = MathFormatter.cleanMathText(item.questionText),
-                    selectedOptionLabel = item.selectedOptionLabel?.let { MathFormatter.formatOptionLabel(it) },
-                    selectedOptionText = item.selectedOptionText?.let { MathFormatter.cleanItem(it) },
-                    correction = item.correction?.let { MathFormatter.cleanMathText(it) },
-                    finalAnswer = MathFormatter.cleanItem(item.finalAnswer),
-                    givens = MathFormatter.cleanItemList(item.givens),
-                    laws = MathFormatter.cleanItemList(item.laws),
-                    substitutionSteps = MathFormatter.cleanItemList(item.substitutionSteps),
-                    calculationSteps = MathFormatter.cleanItemList(item.calculationSteps),
-                    verificationNote = item.verificationNote?.let { MathFormatter.cleanMathText(it) }
-                )
-            }
-
-            EducationalSolution(
-                isImageClear = parsed.isImageClear,
-                unclearReason = parsed.unclearReason?.let { MathFormatter.cleanMathText(it) },
-                subject = parsed.subject,
-                items = cleanedItems,
-                questionUnderstanding = MathFormatter.cleanMathText(parsed.questionUnderstanding),
-                givens = MathFormatter.cleanItemList(parsed.givens),
-                required = MathFormatter.cleanItem(parsed.required),
-                laws = MathFormatter.cleanItemList(parsed.laws),
-                substitutionSteps = MathFormatter.cleanItemList(parsed.substitutionSteps),
-                calculationSteps = MathFormatter.cleanItemList(parsed.calculationSteps),
-                unitCheck = parsed.unitCheck?.let { MathFormatter.cleanMathText(it) },
-                verification = localVerification.copy(
-                    alternativeCheck = parsed.verification.alternativeCheck ?: localVerification.alternativeCheck,
-                    commonMistakesAvoided = parsed.verification.commonMistakesAvoided ?: localVerification.commonMistakesAvoided
-                ),
-                finalAnswer = MathFormatter.cleanItem(parsed.finalAnswer),
-                multipleChoiceAnswer = parsed.multipleChoiceAnswer?.let { MathFormatter.formatOptionLabel(it) },
-                confidence = parsed.confidence,
-                easierExplanation = MathFormatter.cleanMathText(parsed.easierExplanation)
-            )
+            val rawJson = executeGeminiCall(parts, systemInstruction)
+            EducationalSolutionParser.parse(rawJson, subject)
         } catch (e: Exception) {
             EducationalSolution(
                 isImageClear = false,
-                unclearReason = "تعذر الحصول على استجابة من الذكاء الاصطناعي لحل هذه المسألة (${e.message ?: "فشل الاتصال"}). يرجى التحقق من اتصال الإنترنت والضغط على إعادة المحاولة.",
+                unclearReason = "تعذر الاتصال بخدمة الذكاء الاصطناعي حالياً (${e.message}). يرجى التأكد من اتصال الإنترنت وإعادة المحاولة.",
                 subject = subject,
-                questionUnderstanding = if (questionText.isNotBlank()) questionText else "المسألة المرفقة في الصورة/الملف",
+                questionUnderstanding = if (questionText.isNotBlank()) questionText else "ورقة الاختبار المرفقة",
                 confidence = "error",
-                finalAnswer = "يرجى الضغط على زر إعادة المحاولة للتواصل مع الذكاء الاصطناعي."
+                finalAnswer = "يرجى إعادة المحاولة للتواصل مع المصحح الآلي."
             )
         }
     }
 
-    suspend fun solveStudentQuestion(
+    suspend fun explainConcept(prompt: String, subject: String, level: String = "مفصل"): String = withContext(Dispatchers.IO) {
+        val sysPrompt = "أنت معلم ثانوي متميز لطلاب المنهج اليمني في مادة $subject. اشرح بأسلوب $level مع أمثلة واضحة وشرح السبورة التوضيحي."
+        try {
+            executeGeminiCall(listOf(GeminiPart(text = prompt)), sysPrompt)
+        } catch (e: Exception) {
+            "شرح توضيحي لموضوع: $prompt في مادة $subject. يرجى التركيز على المفاهيم والقوانين الوزارية وتطبيقها في حل المسائل."
+        }
+    }
+
+    suspend fun generateSimplerExplanation(lessonTitle: String, coreIdea: String, subject: String): String = withContext(Dispatchers.IO) {
+        val prompt = "أنت معلم ثانوي متميز لطلاب اليمن. اشرح درس '$lessonTitle' في مادة $subject بطريقة ممتعة جداً، مع تشبيه بسيط من الحياة اليومية، في 4 إلى 6 أسطر فقط."
+        try {
+            executeGeminiCall(listOf(GeminiPart(text = prompt)), "اشرح بتبسيط رائع وباللغة العربية الفصحى السلسة.")
+        } catch (e: Exception) {
+            "فكرة الدرس الأساسية: $coreIdea. تذكر دائماً فهم القوانين والتدريب العملي على حل التمارين الوزارية!"
+        }
+    }
+
+    suspend fun askSmartTutor(question: String, subject: String): String = withContext(Dispatchers.IO) {
+        val prompt = "سؤال طالب الصف الثالث الثانوي في مادة $subject: $question. أجب كمعلم ناصح وخبير بالمنهج اليمني."
+        try {
+            executeGeminiCall(listOf(GeminiPart(text = prompt)), "أنت المعلم الذكي لمنصة رقيب للتعليم الثانوي بالجمهورية اليمنية.")
+        } catch (e: Exception) {
+            "أهلاً بك يا بطل! يسعدني دائماً مساعدتك في مادة $subject. يرجى التأكد من اتصال الإنترنت وإعادة إرسال سؤالك."
+        }
+    }
+
+    suspend fun askSmartTeacherFull(
         questionText: String,
         imageBitmap: Bitmap? = null,
-        attachedFile: AttachedFile? = null,
-        subject: String = "عام"
-    ): String = withContext(Dispatchers.IO) {
-        val structured = solveStudentQuestionStructured(questionText, imageBitmap, attachedFile, subject)
-        structured.toFormattedEducationalText()
-    }
-
-    // -------------------------------------------------------------
-    // EXPLAIN SIMPLER (خدمة اشرح لي)
-    // -------------------------------------------------------------
-
-    suspend fun explainConceptSimpler(
-        prompt: String,
-        subject: String = "عام"
-    ): String = withContext(Dispatchers.IO) {
+        subject: String = "عام",
+        modalities: Set<String> = setOf("TEXT", "VIDEO", "IMAGE", "PDF")
+    ): SmartTeacherResponse = withContext(Dispatchers.IO) {
         val systemInstruction = """
-أنت معلم تربوي يمني خبير في تبسيط مناهج الصف الثالث الثانوي.
-مهمتك خدمة "اشرح لي":
-1. التحدث بلغة مبسطة وسهلة جداً وقريبة من واقع الطالب اليمني.
-2. استخدام تشبيهات وأمثلة من الحياة اليومية لتقريب المفاهيم المجردة.
-3. تفكيك الأفكار المعقدة إلى خطوات صغيرة منطقية (1، 2، 3).
-4. توضيح سبب اختيار كل قانون، ومعنى كل رمز، ومتى يستخدم.
-5. الإجابة المباشرة على طلب الطالب دون تعقيد أكاديمي.
+أنت "الأستاذ الذكي" (منصة رقيب للتعليم الثانوي - الجمهورية اليمنية).
+مهمتك: مساعدة وشرح وحل أي سؤال أو مسألة أو استفسار يطرحه طالب الصف الثالث الثانوي (علمي وأدبي) بأعلى جودة تعليمية وأسلوب أستاذ متميز وناصح.
+
+التعليمات الوزارية والتربوية:
+1. اشرح المفهوم أو حل المسألة بخطوات السبورة المعتمدة خطوة بخطوة باللغة العربية الفصحى السلسة والممتعة.
+2. اقترح للطالب درساً وفيديو تعليمياً مخصصاً للموضوع مع عنوان دقيق وعبارة بحث للوصول لأفضل شروحات الفيديو على يوتيوب.
+3. ارسم أو صف لوحة توضيحية ومخططاً بصرياً (Diagram / Board Concept) يساعد الطالب على استيعاب الفكرة وتذكرها.
+4. لخّص أهم القوانين والملاحظات الامتحانية في شكل ملزمة ومذكرة PDF جاهزة.
+
+أرجع النتيجة بصيغة JSON حصراً بهذا الهيكل:
+{
+  "answer_text": "الشرح الكامل والوافي والمفصل للموضوع أو المسألة مع الخطوات...",
+  "key_points": ["نقطة تركيز 1", "نقطة تركيز 2"],
+  "formulas": ["القانون 1", "القانون 2"],
+  "video_title": "عنوان درس الفيديو التعليمي المقترح",
+  "video_query": "عبارة البحث عن الفيديو في يوتيوب",
+  "video_description": "ما سيتعلمه الطالب من هذا المقطع المرئي",
+  "diagram_title": "عنوان المخطط أو اللوحة التعليمية",
+  "diagram_summary": "الوصف البصري أو مخطط المفاهيم للوحة السبورة",
+  "pdf_title": "عنوان الملزمة المرفقة"
+}
         """.trimIndent()
 
-        try {
-            val request = GeminiRequest(
-                contents = listOf(GeminiContent(role = "user", parts = listOf(GeminiPart(text = prompt)))),
-                generationConfig = GeminiGenerationConfig(temperature = 0.5f),
-                systemInstruction = GeminiContent(
-                    role = "user",
-                    parts = listOf(GeminiPart(text = systemInstruction))
+        val parts = mutableListOf<GeminiPart>()
+        if (questionText.isNotBlank()) {
+            parts.add(GeminiPart(text = "سؤال واستفسار الطالب في مادة $subject:\n$questionText\nيرجى تقديم الشرح والحل بصيغة JSON متضمناً النص المقترح والفيديو والرسم التوضيحي وملخص PDF."))
+        }
+
+        if (imageBitmap != null) {
+            val scaledBmp = scaleBitmap(imageBitmap, 1600)
+            val base64Data = bitmapToBase64(scaledBmp)
+            parts.add(
+                GeminiPart(
+                    inlineData = GeminiInlineData(
+                        mimeType = "image/jpeg",
+                        data = base64Data
+                    )
                 )
             )
-
-            callGeminiWithFallbacks(request)
-        } catch (e: Exception) {
-            "عذراً يا بطل، تعذر الاتصال بخدمة اشرح لي حالياً (${e.message}). يرجى التأكد من اتصال الإنترنت وإعادة المحاولة."
-        }
-    }
-
-    suspend fun explainSimpler(conceptOrLesson: String, currentExplanation: String): String = withContext(Dispatchers.IO) {
-        val prompt = """
-أعد شرح هذا الدرس لطلاب الثالث الثانوي اليمني بطريقة "أسهل بكثير":
-عنوان الدرس / الفكرة: $conceptOrLesson
-الشرح الحالي:
-$currentExplanation
-
-التعليمات:
-1. استخدم كلمات أبسط وأقرب لفهم الطالب.
-2. استخدم تشبيهاً عملياً من واقع حياة الطالب اليومية.
-3. قسّم الفكرة إلى خطوات صغيرة جداً.
-4. اختم بمثال مصغر وسهل الحل.
-        """.trimIndent()
-
-        try {
-            val request = GeminiRequest(
-                contents = listOf(
-                    GeminiContent(role = "user", parts = listOf(GeminiPart(text = prompt)))
-                ),
-                generationConfig = GeminiGenerationConfig(temperature = 0.5f)
-            )
-
-            callGeminiWithFallbacks(request)
-        } catch (e: Exception) {
-            "تم تبسيط الفكرة: ركز أولاً على المعطى الرئيسي ثم طبق القانون خطوة بخطوة."
-        }
-    }
-
-    private suspend fun callGeminiWithFallbacks(
-        request: GeminiRequest,
-        preferredModels: List<String> = listOf(
-            "gemini-3.1-flash-lite-preview",
-            "gemini-3.8-flash",
-            "gemini-flash-latest"
-        )
-    ): String {
-        var lastException: Exception? = null
-        for (model in preferredModels) {
-            try {
-                val response = GeminiClient.service.generateContent(model, apiKey, request)
-                val text = response.candidates?.firstOrNull()?.content?.parts?.firstOrNull()?.text
-                if (!text.isNullOrBlank()) {
-                    return text
-                }
-            } catch (e: Exception) {
-                lastException = e
+            if (questionText.isBlank()) {
+                parts.add(GeminiPart(text = "يرجى قراءة وحل المسألة أو السؤال المرفق في هذه الصورة في مادة $subject بالكامل بصيغة JSON متضمناً الشرح، الفيديو، المخطط، وملف PDF."))
             }
         }
-        throw (lastException ?: Exception("تعذر استلام رد من نماذج الذكاء الاصطناعي"))
+
+        if (parts.isEmpty()) {
+            return@withContext SmartTeacherResponse(
+                answerText = "أهلاً بك يا بطل! يرجى كتابة سؤالك أو إرفاق صورة المسألة وسأقوم بشرحها لك بالكامل.",
+                subject = subject
+            )
+        }
+
+        try {
+            val raw = executeGeminiCall(parts, systemInstruction)
+            parseSmartTeacherResponse(raw, subject, questionText)
+        } catch (e: Exception) {
+            val fallbackAnswer = if (questionText.isNotBlank()) {
+                "أهلاً بك يا بطل في مادة $subject! موضوع استفسارك: $questionText.\n\nتذكر دائماً أن فهم القوانين والتدريب العملي هو سر التفوق الوزاري. تعذر الاتصال اللحظي بمحرك الذكاء الاصطناعي (${e.message})، يرجى التأكد من اتصال الإنترنت وإعادة إرسال سؤالك وسأجيبك فوراً!"
+            } else {
+                "أهلاً بك يا بطل! تعذر تحليل الصورة المرفقة حالياً بسبب ضعف الاتصال، يرجى إعادة المحاولة."
+            }
+            SmartTeacherResponse(
+                answerText = fallbackAnswer,
+                subject = subject,
+                videoTitle = "شرح درس مادة $subject - ثالث ثانوي المنهج اليمني",
+                videoQuery = "شرح مادة $subject ثالث ثانوي اليمن $questionText",
+                videoDescription = "مراجعة شاملة للدرس والأسئلة الوزارية",
+                diagramTitle = "لوحة ومخطط المفاهيم",
+                diagramSummary = "مخطط السبورة الوزارية وملخص القوانين الأساسية",
+                pdfTitle = "ملخص وشرح $subject"
+            )
+        }
     }
 
-    private fun scaleBitmap(bitmap: Bitmap, maxDimension: Int = 1280): Bitmap {
+    private fun parseSmartTeacherResponse(rawJson: String, subject: String, originalPrompt: String): SmartTeacherResponse {
+        try {
+            val cleaned = rawJson.trim()
+                .removePrefix("```json").removePrefix("```")
+                .removeSuffix("```").trim()
+            val obj = JSONObject(cleaned)
+            val answerText = obj.optString("answer_text", "")
+            val keyPoints = mutableListOf<String>()
+            val keyPointsArr = obj.optJSONArray("key_points")
+            if (keyPointsArr != null) {
+                for (i in 0 until keyPointsArr.length()) {
+                    keyPoints.add(keyPointsArr.optString(i))
+                }
+            }
+            val formulas = mutableListOf<String>()
+            val formulasArr = obj.optJSONArray("formulas")
+            if (formulasArr != null) {
+                for (i in 0 until formulasArr.length()) {
+                    formulas.add(formulasArr.optString(i))
+                }
+            }
+            val videoTitle = obj.optString("video_title", "درس فيديو: $subject").ifEmpty { "درس فيديو: $subject" }
+            val videoQuery = obj.optString("video_query", "شرح منهج اليمن $subject $originalPrompt").ifEmpty { "شرح منهج اليمن $subject $originalPrompt" }
+            val videoDesc = obj.optString("video_description", "فيديو تعليمي تفصيلي لشرح وحل أسئلة الموضوع").ifEmpty { "فيديو تعليمي تفصيلي لشرح وحل أسئلة الموضوع" }
+            val diagramTitle = obj.optString("diagram_title", "لوحة ومخطط المفاهيم").ifEmpty { "لوحة ومخطط المفاهيم" }
+            val diagramSummary = obj.optString("diagram_summary", "مخطط سبورة يوضح خطوات وتفرعات الدرس").ifEmpty { "مخطط سبورة يوضح خطوات وتفرعات الدرس" }
+            val pdfTitle = obj.optString("pdf_title", "ملزمة شرح الأستاذ الذكي - $subject").ifEmpty { "ملزمة شرح الأستاذ الذكي - $subject" }
+
+            return SmartTeacherResponse(
+                answerText = if (answerText.isNotBlank()) answerText else cleaned,
+                subject = subject,
+                keyPoints = keyPoints,
+                formulas = formulas,
+                videoTitle = videoTitle,
+                videoQuery = videoQuery,
+                videoDescription = videoDesc,
+                diagramTitle = diagramTitle,
+                diagramSummary = diagramSummary,
+                pdfTitle = pdfTitle
+            )
+        } catch (e: Exception) {
+            return SmartTeacherResponse(
+                answerText = rawJson,
+                subject = subject,
+                videoTitle = "فيديو تعليمي في $subject",
+                videoQuery = "شرح منهج اليمن $subject $originalPrompt",
+                videoDescription = "شرح مرئي شامل للمنهج اليمني",
+                diagramTitle = "لوحة المفاهيم",
+                diagramSummary = "مخطط توضيحي للدرس",
+                pdfTitle = "ملخص ومذكرة $subject"
+            )
+        }
+    }
+
+    private fun executeGeminiCall(parts: List<GeminiPart>, systemInstruction: String): String {
+        val url = URL("https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=$apiKey")
+        val conn = url.openConnection() as HttpURLConnection
+        conn.requestMethod = "POST"
+        conn.setRequestProperty("Content-Type", "application/json")
+        conn.doOutput = true
+        conn.connectTimeout = 30000
+        conn.readTimeout = 60000
+
+        val requestObj = JSONObject()
+        val contentsArr = JSONArray()
+        val contentObj = JSONObject()
+        contentObj.put("role", "user")
+
+        val partsArr = JSONArray()
+        for (p in parts) {
+            val partObj = JSONObject()
+            if (p.text != null) {
+                partObj.put("text", p.text)
+            } else if (p.inlineData != null) {
+                val inlineObj = JSONObject()
+                inlineObj.put("mime_type", p.inlineData.mimeType)
+                inlineObj.put("data", p.inlineData.data)
+                partObj.put("inline_data", inlineObj)
+            }
+            partsArr.put(partObj)
+        }
+        contentObj.put("parts", partsArr)
+        contentsArr.put(contentObj)
+        requestObj.put("contents", contentsArr)
+
+        val sysObj = JSONObject()
+        val sysPartsArr = JSONArray()
+        sysPartsArr.put(JSONObject().put("text", systemInstruction))
+        sysObj.put("parts", sysPartsArr)
+        requestObj.put("systemInstruction", sysObj)
+
+        val genConfig = JSONObject()
+        genConfig.put("temperature", 0.2)
+        genConfig.put("maxOutputTokens", 8192)
+        genConfig.put("responseMimeType", "application/json")
+        requestObj.put("generationConfig", genConfig)
+
+        OutputStreamWriter(conn.outputStream).use { it.write(requestObj.toString()) }
+
+        val responseCode = conn.responseCode
+        if (responseCode == HttpURLConnection.HTTP_OK) {
+            val responseText = conn.inputStream.bufferedReader().use { it.readText() }
+            val respJson = JSONObject(responseText)
+            val candidates = respJson.optJSONArray("candidates")
+            val candidate = candidates?.optJSONObject(0)
+            val content = candidate?.optJSONObject("content")
+            val respParts = content?.optJSONArray("parts")
+            return respParts?.optJSONObject(0)?.optString("text") ?: "{}"
+        } else {
+            val errorText = conn.errorStream?.bufferedReader()?.use { it.readText() } ?: "Error $responseCode"
+            throw Exception("HTTP $responseCode: $errorText")
+        }
+    }
+
+    private fun ensureSoftwareBitmap(bitmap: Bitmap): Bitmap {
+        return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O && bitmap.config == Bitmap.Config.HARDWARE) {
+            bitmap.copy(Bitmap.Config.ARGB_8888, false) ?: bitmap
+        } else {
+            bitmap
+        }
+    }
+
+    private fun scaleBitmap(sourceBitmap: Bitmap, maxDimension: Int = 1600): Bitmap {
+        val bitmap = ensureSoftwareBitmap(sourceBitmap)
         val width = bitmap.width
         val height = bitmap.height
         if (width <= maxDimension && height <= maxDimension) return bitmap
@@ -406,293 +396,10 @@ $currentExplanation
     }
 
     private fun bitmapToBase64(bitmap: Bitmap): String {
-        val scaled = scaleBitmap(bitmap, 1280)
+        val scaled = scaleBitmap(bitmap, 1600)
         val stream = ByteArrayOutputStream()
         scaled.compress(Bitmap.CompressFormat.JPEG, 85, stream)
         val byteArray = stream.toByteArray()
         return Base64.encodeToString(byteArray, Base64.NO_WRAP)
-    }
-
-    // -------------------------------------------------------------
-    // OFFLINE HIGH-PRECISION FALLBACK ENGINE
-    // -------------------------------------------------------------
-
-    fun getOfflineStructuredSolution(question: String, subject: String): EducationalSolution {
-        val q = question.lowercase()
-
-        // 1. Unclear image or question detector
-        if (q.contains("غير واضحة") || q.contains("غير مقروء") || q.contains("مش واضحة")) {
-            return EducationalSolution(
-                isImageClear = false,
-                unclearReason = "الجزء الخاص ببيانات وأرقام المسألة غير واضح في الصورة، أرسل صورة أوضح حتى أحل السؤال بدقة وبشكل صحيح.",
-                subject = subject,
-                confidence = "unclear",
-                verification = ProblemVerification(
-                    isValid = false,
-                    verificationDetails = "تم إيقاف الحل التلقائي لتجنب اختراع أي أرقام أو إشارات غير مؤكدة.",
-                    checksList = listOf("⚠️ تدقيق وضوح الصورة: غير واضحة لمنع التخمين الخاطئ"),
-                    commonMistakesAvoided = "عدم اختراع البيانات عند عدم وضوح الصورة الأصلية."
-                )
-            )
-        }
-
-        // 2. Multi-question exam sheet detector (ورقة اختبار أو عدة أسئلة)
-        if (q.contains("ورقة") || q.contains("اختبار") || q.contains("عدة أسئلة") || q.contains("اسئلة") || q.contains("السؤال 1")) {
-            return EducationalSolution(
-                isImageClear = true,
-                subject = "الرياضيات والفيزياء",
-                items = listOf(
-                    com.example.data.solver.QuestionSolvedItem(
-                        questionNumber = 1,
-                        questionTitle = "السؤال 1",
-                        questionText = "إذا كان ع = [4 ، 60°] فإن سعة الجذر التربيعي تساوي:",
-                        questionType = "MULTIPLE_CHOICE",
-                        selectedOptionLabel = "الاختيار ③",
-                        selectedOptionText = "30°",
-                        finalAnswer = "30°",
-                        givens = listOf("ع = [4 ، 60°]"),
-                        laws = listOf("سعة الجذر = هـ ÷ 2"),
-                        substitutionSteps = listOf("60° ÷ 2"),
-                        calculationSteps = listOf("60° ÷ 2 = 30°")
-                    ),
-                    com.example.data.solver.QuestionSolvedItem(
-                        questionNumber = 2,
-                        questionTitle = "السؤال 2",
-                        questionText = "مقياس العدد المركب ع = [4 ، 60°] هو 4 دائماً موجب.",
-                        questionType = "TRUE_FALSE",
-                        isTrue = true,
-                        finalAnswer = "صح",
-                        calculationSteps = listOf("المقياس ر يمثل بعد النقطة عن الأصل وهو دائماً موجب ر ≥ 0")
-                    ),
-                    com.example.data.solver.QuestionSolvedItem(
-                        questionNumber = 3,
-                        questionTitle = "السؤال 3",
-                        questionText = "طول الجذر التربيعي للعدد ع = [4 ، 60°] هو:",
-                        questionType = "MULTIPLE_CHOICE",
-                        selectedOptionLabel = "الاختيار ①",
-                        selectedOptionText = "2",
-                        finalAnswer = "2",
-                        givens = listOf("ر = 4"),
-                        laws = listOf("طول الجذر = √ر"),
-                        substitutionSteps = listOf("√4"),
-                        calculationSteps = listOf("√4 = 2")
-                    ),
-                    com.example.data.solver.QuestionSolvedItem(
-                        questionNumber = 4,
-                        questionTitle = "السؤال 4",
-                        questionText = "عند إيجاد الجذور النونية تضرب الزاوية في ن.",
-                        questionType = "TRUE_FALSE",
-                        isTrue = false,
-                        correction = "تقسم الزاوية على ن (دليل الجذر) ولا تضرب.",
-                        finalAnswer = "خطأ",
-                        calculationSteps = listOf("قانون دي موافر للجذور يقسم الزاوية على ن: (هـ + 2ك ط) ÷ ن")
-                    )
-                ),
-                verification = ProblemVerification(
-                    isValid = true,
-                    verificationDetails = "تم حل كل سؤال في الورقة بشكل مستقل والتحقق من صحته",
-                    checksList = listOf("✓ مطابقة أرقام الأسئلة", "✓ فحص الاختيارات", "✓ تدقيق صح وخطأ")
-                ),
-                confidence = "high"
-            )
-        }
-
-        // 3. Multiple Choice Single Question (اختيار من متعدد)
-        if (q.contains("اختيار") || q.contains("اختر") || q.contains("خيارات")) {
-            return EducationalSolution(
-                isImageClear = true,
-                subject = "الرياضيات",
-                questionType = "MULTIPLE_CHOICE",
-                selectedOptionLabel = "الاختيار ②",
-                selectedOptionText = "30°",
-                finalAnswer = "30°",
-                givens = listOf("ع = [4 ، 60°]"),
-                laws = listOf("زاوية الجذر = هـ ÷ 2"),
-                substitutionSteps = listOf("60° ÷ 2"),
-                calculationSteps = listOf("60° ÷ 2 = 30°"),
-                verification = ProblemVerification(
-                    isValid = true,
-                    verificationDetails = "مطابقة الناتج 30° مع الاختيار ② الموجود بالورقة",
-                    checksList = listOf("✓ حل المسألة", "✓ فحص الخيارات", "✓ تحديد رقم الاختيار")
-                ),
-                confidence = "high"
-            )
-        }
-
-        // 4. True / False Single Question (صح وخطأ)
-        if (q.contains("صح أو خطأ") || q.contains("صح وخطأ") || q.contains("صح أم خطأ")) {
-            val isWrong = q.contains("ضرب") || q.contains("سالب")
-            return EducationalSolution(
-                isImageClear = true,
-                subject = "الرياضيات",
-                questionType = "TRUE_FALSE",
-                isTrue = !isWrong,
-                correction = if (isWrong) "تقسم الزاوية على دليل الجذر بدلاً من الضرب" else null,
-                finalAnswer = if (!isWrong) "صح" else "خطأ",
-                calculationSteps = listOf("التحقق من صحة القاعدة وفق مقرر الجبر للصف الثالث الثانوي"),
-                verification = ProblemVerification(
-                    isValid = true,
-                    verificationDetails = "تم تدقيق العبارة وفق كتاب الرياضيات الوزاري",
-                    checksList = listOf("✓ تدقيق العبارة", "✓ التعليل والتصحيح")
-                ),
-                confidence = "high"
-            )
-        }
-
-        // 5. Complex Numbers (الأعداد المركبة والجذور - مثال المنهج اليمني)
-        if (q.contains("مركب") || q.contains("جذر") || q.contains("ع =") || q.contains("ع=") || q.contains("الصورة القطبية") || q.contains("مقياس") || q.contains("سعة")) {
-            return EducationalSolution(
-                isImageClear = true,
-                subject = "الرياضيات",
-                questionUnderstanding = "إيجاد الجذر التربيعي للعدد المركب بالصورة القطبية ع = [4 ، 60°]",
-                givens = listOf(
-                    "ع = [4 ، 60°]"
-                ),
-                required = "إيجاد الجذر التربيعي للعدد ع (√ع)",
-                laws = listOf(
-                    "ع = [ر ، هـ] → √ع = [√ر ، هـ ÷ 2]"
-                ),
-                substitutionSteps = listOf(
-                    "√ع = [√4 ، 60° ÷ 2]"
-                ),
-                calculationSteps = listOf(
-                    "طول الجذر: √4 = 2",
-                    "الزاوية: 60° ÷ 2 = 30°",
-                    "إذن: √ع = [2 ، 30°]"
-                ),
-                unitCheck = null,
-                verification = ProblemVerification(
-                    isValid = true,
-                    verificationDetails = "تم التحقق بالتربيع: [2 ، 30°]² = [2² ، 30° × 2] = [4 ، 60°] = ع",
-                    checksList = listOf("✓ فحص المعطيات", "✓ تطبيق قانون دي موافر للجذور", "✓ تدقيق الحساب"),
-                    alternativeCheck = "التربيع العكسي يطابق العدد المعطى تماماً",
-                    commonMistakesAvoided = "تجنب خطأ ضرب الزاوية بدلاً من قسمتها على 2"
-                ),
-                finalAnswer = "[2 ، 30°]",
-                multipleChoiceAnswer = null,
-                confidence = "high",
-                easierExplanation = "طول الجذر نأخذ له الجذر التربيعي العادي، وزاوية الجذر نقسمها على دليل الجذر (2)."
-            )
-        }
-
-        // 3. Physics AC Circuit Impedance
-        if (subject.contains("فيزياء") || q.contains("تيار متردد") || q.contains("ممانعة") || q.contains("مقاومة") && q.contains("حث")) {
-            return EducationalSolution(
-                isImageClear = true,
-                subject = "الفيزياء",
-                questionUnderstanding = "حساب الممانعة الكلية Z وشدة التيار I في دائرة تيار متردد",
-                givens = listOf(
-                    "R = 30 Ω",
-                    "XL = 80 Ω",
-                    "XC = 40 Ω",
-                    "V = 100 V"
-                ),
-                required = "الممانعة الكلية Z وشدة التيار I",
-                laws = listOf(
-                    "Z = √(R² + (XL - XC)²)",
-                    "I = V ÷ Z"
-                ),
-                substitutionSteps = listOf(
-                    "Z = √(30² + (80 - 40)²)",
-                    "I = 100 ÷ Z"
-                ),
-                calculationSteps = listOf(
-                    "XL - XC = 80 - 40 = 40 Ω",
-                    "Z = √(30² + 40²) = √(900 + 1600) = √2500 = 50 Ω",
-                    "I = 100 ÷ 50 = 2 A"
-                ),
-                unitCheck = "الوحدات القياسية: أوم (Ω) للممانعة، أمبير (A) لشدة التيار",
-                verification = ProblemVerification(
-                    isValid = true,
-                    verificationDetails = "المثلث القائم الشهير (30، 40، 50) صحيح حسابياً",
-                    checksList = listOf("✓ تدقيق المعطيات", "✓ تطبيق فيثاغورس للممانعة", "✓ حساب شدة التيار"),
-                    alternativeCheck = "Z² = 30² + 40² = 2500",
-                    commonMistakesAvoided = "تجنب جمع المفاعلات بدلاً من طرحها"
-                ),
-                finalAnswer = "Z = 50 Ω ، I = 2 A",
-                multipleChoiceAnswer = null,
-                confidence = "high",
-                easierExplanation = "الممانعة هي وتر المثلث القائم بين المقاومة وفرق المفاعلتين."
-            )
-        }
-
-        // 4. Chemistry Balancing & Moles / pH
-        if (subject.contains("كيمياء") || q.contains("ph") || q.contains("رقم هيدروجيني") || q.contains("معادلة") || q.contains("مول")) {
-            return EducationalSolution(
-                isImageClear = true,
-                subject = "الكيمياء",
-                questionUnderstanding = "حساب الرقم الهيدروجيني pH",
-                givens = listOf(
-                    "[H⁺] = 1.0 × 10⁻³ مول/لتر"
-                ),
-                required = "حساب الرقم الهيدروجيني pH",
-                laws = listOf(
-                    "pH = - log[H⁺]"
-                ),
-                substitutionSteps = listOf(
-                    "pH = - log(1.0 × 10⁻³)"
-                ),
-                calculationSteps = listOf(
-                    "log(10⁻³) = -3",
-                    "pH = -(-3) = 3"
-                ),
-                unitCheck = "الرقم الهيدروجيني كمية لا بعدية (بدون وحدة)",
-                verification = ProblemVerification(
-                    isValid = true,
-                    verificationDetails = "[H⁺] = 10⁻³ M يقابله pH = 3",
-                    checksList = listOf("✓ تدقيق تركيز الهيدروجين", "✓ تطبيق علاقة اللوغاريتم السالب"),
-                    alternativeCheck = "10⁻³ مول/لتر تعني مباشرة 3 على مقياس الحموضة",
-                    commonMistakesAvoided = "تجنب نسيان إشارة السالب في قانون pH"
-                ),
-                finalAnswer = "pH = 3 (محلول حمضي)",
-                multipleChoiceAnswer = null,
-                confidence = "high",
-                easierExplanation = "الـ pH هو الأس السالب لتركيز أيون الهيدروجين."
-            )
-        }
-
-        // 5. Default Mathematics: Direct Yemeni Step-by-Step
-        return EducationalSolution(
-            isImageClear = true,
-            subject = "الرياضيات",
-            questionUnderstanding = "حل المسألة الرياضية بالخطوات الوزارية المعتمدة",
-            givens = listOf(
-                "ع = [4 ، 60°]"
-            ),
-            required = "إيجاد الجذر التربيعي للعدد ع",
-            laws = listOf(
-                "ع = [ر ، هـ] → √ع = [√ر ، هـ ÷ 2]"
-            ),
-            substitutionSteps = listOf(
-                "√ع = [√4 ، 60° ÷ 2]"
-            ),
-            calculationSteps = listOf(
-                "طول الجذر: √4 = 2",
-                "الزاوية: 60° ÷ 2 = 30°",
-                "إذن: √ع = [2 ، 30°]"
-            ),
-            unitCheck = null,
-            verification = ProblemVerification(
-                isValid = true,
-                verificationDetails = "الحل مطابق للخطوات الوزارية المعتمدة في المنهج اليمني",
-                checksList = listOf("✓ المعطيات", "✓ القانون", "✓ التعويض", "✓ الحساب"),
-                alternativeCheck = "التحقق بالتربيع المباشر",
-                commonMistakesAvoided = "تجنب القفز في العمليات الحسابية"
-            ),
-            finalAnswer = "[2 ، 30°]",
-            multipleChoiceAnswer = null,
-            confidence = "high",
-            easierExplanation = "طول الجذر نأخذ له الجذر، والزاوية نقسمها على 2."
-        )
-    }
-
-    private fun getOfflineTeacherResponse(prompt: String, subject: String?): String {
-        return """
-مرحباً بك يا بطل في تطبيق رقيب للتعليم الثانوي! 🇾🇪
-بخصوص سؤالك: "${prompt.take(45)}..."
-1. الفكرة الأساسية: كل مسألة في المنهج لها مفتاح مباشر وهو تحديد المعطيات واختيار القانون الوزاري المناسب.
-2. خطوات الحل: اكتب المعطيات أولاً، عوض بالأرقام بهدوء، ودقق إشارات الجمع والطرح.
-3. إذا واجهت مسألة محددة، اكتبها أو التقط صورتها في قسم "حل سؤالي" وسأحلها لك بالخطوات المنظمة فوراً!
-        """.trimIndent()
     }
 }

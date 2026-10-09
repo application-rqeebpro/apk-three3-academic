@@ -1,254 +1,230 @@
 package com.example.ui
 
+import android.widget.Toast
 import androidx.activity.compose.BackHandler
-import androidx.compose.animation.*
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.platform.LocalLayoutDirection
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
-import androidx.compose.ui.unit.LayoutDirection
-import com.example.ui.components.AcademyBottomNav
-import com.example.ui.components.AcademyTopBar
-import com.example.ui.screens.admin.*
+import com.example.ui.screens.admin.AdminDashboardScreen
 import com.example.ui.screens.auth.LoginScreen
 import com.example.ui.screens.auth.RegisterScreen
+import com.example.ui.screens.calculator.ScientificCalculatorScreen
 import com.example.ui.screens.curriculum.LessonDetailScreen
 import com.example.ui.screens.curriculum.SubjectsScreen
 import com.example.ui.screens.curriculum.UnitsScreen
-import com.example.ui.screens.exams.ExamResultScreen
-import com.example.ui.screens.exams.ExamSessionScreen
-import com.example.ui.screens.exams.ExamsScreen
-import com.example.ui.screens.exams.QuestionBankScreen
+import com.example.ui.screens.exams.*
+import com.example.ui.screens.explain.ExplainMeScreen
 import com.example.ui.screens.home.HomeScreen
-import com.example.ui.screens.profile.FavoritesScreen
-import com.example.ui.screens.profile.ProfileScreen
-import com.example.ui.screens.profile.ProgressScreen
-import com.example.ui.screens.profile.SearchScreen
+import com.example.ui.screens.pdf.PdfViewerScreen
+import com.example.ui.screens.profile.*
 import com.example.ui.screens.smarttutor.SmartTutorScreen
 import com.example.ui.screens.solver.SolveMyQuestionScreen
-import com.example.ui.screens.subscription.ActivateCodeScreen
-import com.example.ui.screens.subscription.PaymentFormScreen
-import com.example.ui.screens.subscription.SubscriptionScreen
-import com.example.ui.screens.explain.ExplainMeScreen
-import com.example.ui.screens.subscription.SubscriptionGateScreen
-import com.example.ui.screens.calculator.ScientificCalculatorScreen
-import com.example.ui.theme.MyApplicationTheme
+import com.example.ui.screens.subscription.*
+import com.example.ui.theme.Theme
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun MainApp(viewModel: MainViewModel) {
-    val isDarkMode by viewModel.isDarkMode.collectAsState()
+fun MainApp(
+    viewModel: MainViewModel
+) {
+    val context = LocalContext.current
     val currentScreen by viewModel.currentScreen.collectAsState()
-    val currentUser by viewModel.currentUser.collectAsState()
-    val isSubscribed by viewModel.isSubscribed.collectAsState()
+    val isDarkMode by viewModel.isDarkMode.collectAsState()
     val toastMessage by viewModel.toastMessage.collectAsState()
+    val currentUser by viewModel.currentUser.collectAsState()
 
-    val snackbarHostState = remember { SnackbarHostState() }
     var showOwnerLoginDialog by remember { mutableStateOf(false) }
+    var ownerPasswordInput by remember { mutableStateOf("") }
+    var ownerLoginError by remember { mutableStateOf("") }
 
-    val isLockedStudent = currentUser != null && currentUser?.role != "ADMIN" && !isSubscribed
-    val isNotLoggedIn = currentUser == null
-
+    // Toast handler
     LaunchedEffect(toastMessage) {
-        toastMessage?.let { msg ->
-            snackbarHostState.showSnackbar(msg)
-            viewModel.toastMessage.value = null
+        toastMessage?.let {
+            Toast.makeText(context, it, Toast.LENGTH_SHORT).show()
+            viewModel.clearToast()
         }
     }
 
-    // Force RTL for Arabic Educational Academy
-    CompositionLocalProvider(LocalLayoutDirection provides LayoutDirection.Rtl) {
-        MyApplicationTheme(darkTheme = isDarkMode) {
-            val canNavigateBack = if (currentScreen == Screen.ScientificCalculator) true else (!isNotLoggedIn && !isLockedStudent && currentScreen != Screen.Home)
-            BackHandler(enabled = canNavigateBack) {
-                viewModel.navigateBack()
-            }
+    // Back handling
+    BackHandler(enabled = currentScreen != Screen.Home) {
+        viewModel.navigateBack()
+    }
 
-            val showBottomNav = !isNotLoggedIn && !isLockedStudent && currentScreen in listOf(
-                Screen.Home,
-                Screen.Subjects,
-                Screen.ExplainMe,
-                Screen.SmartTutor,
-                Screen.SolveMyQuestion,
-                Screen.Profile
-            )
-
-            val displayTitle = when {
-                currentScreen == Screen.ScientificCalculator -> "🧮 الحاسبة العلمية"
-                isNotLoggedIn -> if (currentScreen == Screen.Register) "إنشاء حساب طالب جديد" else "تسجيل الدخول - رقيب للتعليم الثانوي"
-                isLockedStudent -> "تفعيل اشتراك رقيب للتعليم الثانوي 🇾🇪"
-                else -> currentScreen.title
-            }
-
-            Scaffold(
-                topBar = {
-                    AcademyTopBar(
-                        title = displayTitle,
-                        canNavigateBack = canNavigateBack,
-                        onNavigateBack = { viewModel.navigateBack() },
-                        isDarkMode = isDarkMode,
-                        onToggleDarkMode = { viewModel.toggleDarkMode() },
-                        isAdmin = currentUser?.role == "ADMIN",
-                        onAdminClick = {
-                            if (currentUser?.role == "ADMIN") {
-                                viewModel.navigateTo(Screen.AdminDashboard)
-                            } else {
-                                showOwnerLoginDialog = true
+    Theme(darkTheme = isDarkMode) {
+        Scaffold(
+            topBar = {
+                if (currentScreen == Screen.Home) {
+                    TopAppBar(
+                        title = {
+                            Text("أكاديمية رقيب", fontWeight = FontWeight.ExtraBold)
+                        },
+                        actions = {
+                            IconButton(onClick = { viewModel.navigateTo(Screen.Login) }) {
+                                Icon(Icons.Default.AccountCircle, contentDescription = "تسجيل الدخول / الحساب")
+                            }
+                            IconButton(onClick = {
+                                if (currentUser?.role == "ADMIN") {
+                                    viewModel.navigateTo(Screen.AdminDashboard)
+                                } else {
+                                    showOwnerLoginDialog = true
+                                }
+                            }) {
+                                Icon(Icons.Default.AdminPanelSettings, contentDescription = "دخول المالك")
+                            }
+                            IconButton(onClick = { viewModel.navigateTo(Screen.Search) }) {
+                                Icon(Icons.Default.Search, contentDescription = "بحث")
                             }
                         }
                     )
-                },
-                bottomBar = {
-                    if (showBottomNav) {
-                        AcademyBottomNav(
-                            currentScreen = currentScreen,
-                            onSelectScreen = { screen ->
-                                if (currentScreen != screen) {
-                                    viewModel.navigateTo(screen)
-                                }
-                            }
+                }
+            },
+            bottomBar = {
+                // Show bottom bar on primary tabs
+                val primaryScreens = listOf(Screen.Home, Screen.Subjects, Screen.PdfViewer, Screen.SolveMyQuestion, Screen.Profile)
+                if (currentScreen in primaryScreens) {
+                    NavigationBar {
+                        NavigationBarItem(
+                            selected = currentScreen == Screen.Home,
+                            onClick = { viewModel.navigateTo(Screen.Home) },
+                            icon = { Icon(Icons.Default.Home, contentDescription = null) },
+                            label = { Text("الرئيسية") }
                         )
-                    }
-                },
-                snackbarHost = { SnackbarHost(snackbarHostState) },
-                contentWindowInsets = WindowInsets.safeDrawing
-            ) { innerPadding ->
-                Box(
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .padding(innerPadding)
-                ) {
-                    when {
-                        // 1. Not logged in -> Must Login or Register
-                        isNotLoggedIn -> {
-                            when (currentScreen) {
-                                Screen.Register -> RegisterScreen(viewModel)
-                                Screen.AdminDashboard -> AdminDashboardScreen(viewModel)
-                                Screen.ScientificCalculator -> ScientificCalculatorScreen(viewModel)
-                                else -> LoginScreen(viewModel)
-                            }
-                        }
-
-                        // 2. Student logged in but NOT subscribed -> Must activate code or pay
-                        isLockedStudent -> {
-                            when (currentScreen) {
-                                Screen.PaymentForm -> PaymentFormScreen(viewModel)
-                                Screen.AdminDashboard -> AdminDashboardScreen(viewModel)
-                                Screen.ScientificCalculator -> ScientificCalculatorScreen(viewModel)
-                                else -> SubscriptionGateScreen(viewModel)
-                            }
-                        }
-
-                        // 3. Fully Authorized (Admin or Subscribed Student)
-                        else -> {
-                            when (currentScreen) {
-                                Screen.Home -> HomeScreen(viewModel)
-                                Screen.Subjects -> SubjectsScreen(viewModel)
-                                Screen.Units -> UnitsScreen(viewModel)
-                                Screen.LessonDetail -> LessonDetailScreen(viewModel)
-                                Screen.ExplainMe -> ExplainMeScreen(viewModel)
-                                Screen.SmartTutor -> SmartTutorScreen(viewModel)
-                                Screen.SolveMyQuestion -> SolveMyQuestionScreen(viewModel)
-                                Screen.Exams -> ExamsScreen(viewModel)
-                                Screen.ExamSession -> ExamSessionScreen(viewModel)
-                                Screen.ExamResult -> ExamResultScreen(viewModel)
-                                Screen.QuestionBank -> QuestionBankScreen(viewModel)
-                                Screen.Subscription -> SubscriptionScreen(viewModel)
-                                Screen.PaymentForm -> PaymentFormScreen(viewModel)
-                                Screen.ActivateCode -> ActivateCodeScreen(viewModel)
-                                Screen.SubscriptionGate -> SubscriptionGateScreen(viewModel)
-                                Screen.Search -> SearchScreen(viewModel)
-                                Screen.Favorites -> FavoritesScreen(viewModel)
-                                Screen.Progress -> ProgressScreen(viewModel)
-                                Screen.Profile -> ProfileScreen(viewModel)
-                                Screen.Login -> LoginScreen(viewModel)
-                                Screen.Register -> RegisterScreen(viewModel)
-                                Screen.AdminDashboard -> AdminDashboardScreen(viewModel)
-                                Screen.AdminStudents -> AdminStudentsScreen(viewModel)
-                                Screen.AdminPayments -> AdminPaymentsScreen(viewModel)
-                                Screen.AdminCodes -> AdminCodesScreen(viewModel)
-                                Screen.AdminContent -> AdminContentScreen(viewModel)
-                                Screen.AdminNotifications -> AdminNotificationsScreen(viewModel)
-                                Screen.AdminLogs -> AdminLogsScreen(viewModel)
-                                Screen.ScientificCalculator -> ScientificCalculatorScreen(viewModel)
-                            }
-                        }
+                        NavigationBarItem(
+                            selected = currentScreen == Screen.Subjects,
+                            onClick = { viewModel.navigateTo(Screen.Subjects) },
+                            icon = { Icon(Icons.Default.MenuBook, contentDescription = null) },
+                            label = { Text("المواد") }
+                        )
+                        NavigationBarItem(
+                            selected = currentScreen == Screen.PdfViewer,
+                            onClick = { viewModel.navigateTo(Screen.PdfViewer) },
+                            icon = { Icon(Icons.Default.Description, contentDescription = null) },
+                            label = { Text("الملازم") }
+                        )
+                        NavigationBarItem(
+                            selected = currentScreen == Screen.SolveMyQuestion,
+                            onClick = { viewModel.navigateTo(Screen.SolveMyQuestion) },
+                            icon = { Icon(Icons.Default.AutoAwesome, contentDescription = null) },
+                            label = { Text("حل سؤالي") }
+                        )
+                        NavigationBarItem(
+                            selected = currentScreen == Screen.Profile,
+                            onClick = { viewModel.navigateTo(Screen.Profile) },
+                            icon = { Icon(Icons.Default.Person, contentDescription = null) },
+                            label = { Text("حسابي") }
+                        )
                     }
                 }
             }
+        ) { padding ->
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(padding)
+            ) {
+                when (currentScreen) {
+                    is Screen.Home -> HomeScreen(viewModel = viewModel, onNavigate = { viewModel.navigateTo(it) })
+                    is Screen.Subjects -> SubjectsScreen(viewModel = viewModel, onNavigate = { viewModel.navigateTo(it) })
+                    is Screen.Units -> UnitsScreen(viewModel = viewModel, onBack = { viewModel.navigateBack() }, onNavigate = { viewModel.navigateTo(it) })
+                    is Screen.LessonDetail -> LessonDetailScreen(viewModel = viewModel, onBack = { viewModel.navigateBack() }, onNavigate = { viewModel.navigateTo(it) })
+                    is Screen.PdfViewer -> PdfViewerScreen(viewModel = viewModel, onBack = { viewModel.navigateBack() }, onNavigate = { viewModel.navigateTo(it) })
+                    is Screen.SolveMyQuestion -> SolveMyQuestionScreen(viewModel = viewModel)
+                    is Screen.Exams -> ExamsScreen(viewModel = viewModel, onNavigate = { viewModel.navigateTo(it) })
+                    is Screen.ExamSession -> ExamSessionScreen(viewModel = viewModel, onNavigate = { viewModel.navigateTo(it) }, onBack = { viewModel.navigateBack() })
+                    is Screen.ExamResult -> ExamResultScreen(viewModel = viewModel, onNavigate = { viewModel.navigateTo(it) })
+                    is Screen.QuestionBank -> QuestionBankScreen(viewModel = viewModel, onBack = { viewModel.navigateBack() })
+                    is Screen.ExplainMe -> ExplainMeScreen(viewModel = viewModel, onBack = { viewModel.navigateBack() })
+                    is Screen.SmartTutor -> SmartTutorScreen(viewModel = viewModel, onBack = { viewModel.navigateBack() })
+                    is Screen.ScientificCalculator -> ScientificCalculatorScreen(viewModel = viewModel, onBack = { viewModel.navigateBack() })
+                    is Screen.AdminDashboard,
+                    is Screen.AdminContent,
+                    is Screen.AdminStudents,
+                    is Screen.AdminPayments,
+                    is Screen.AdminCodes,
+                    is Screen.AdminNotifications,
+                    is Screen.AdminLogs -> AdminDashboardScreen(viewModel = viewModel, onNavigate = { viewModel.navigateTo(it) })
+                    is Screen.Profile -> ProfileScreen(viewModel = viewModel, onNavigate = { viewModel.navigateTo(it) })
+                    is Screen.Favorites -> FavoritesScreen(viewModel = viewModel, onBack = { viewModel.navigateBack() })
+                    is Screen.Progress -> ProgressScreen(viewModel = viewModel, onBack = { viewModel.navigateBack() })
+                    is Screen.Search -> SearchScreen(viewModel = viewModel, onBack = { viewModel.navigateBack() })
+                    is Screen.Subscription -> SubscriptionScreen(viewModel = viewModel, onNavigate = { viewModel.navigateTo(it) }, onBack = { viewModel.navigateBack() })
+                    is Screen.PaymentForm -> PaymentFormScreen(viewModel = viewModel, onBack = { viewModel.navigateBack() }, onSuccess = { viewModel.navigateTo(Screen.Home) })
+                    is Screen.ActivateCode -> ActivateCodeScreen(viewModel = viewModel, onBack = { viewModel.navigateBack() }, onSuccess = { viewModel.navigateTo(Screen.Home) })
+                    is Screen.SubscriptionGate -> SubscriptionGateScreen(onNavigateToSubscription = { viewModel.navigateTo(Screen.Subscription) }, onBack = { viewModel.navigateBack() })
+                    is Screen.Login -> LoginScreen(viewModel = viewModel, onNavigate = { viewModel.navigateTo(it) }, onSuccess = { viewModel.navigateTo(Screen.Home) })
+                    is Screen.Register -> RegisterScreen(viewModel = viewModel, onNavigate = { viewModel.navigateTo(it) }, onSuccess = { viewModel.navigateTo(Screen.Home) })
+                }
+            }
+        }
 
-            if (showOwnerLoginDialog) {
-                var adminPassword by remember { mutableStateOf("") }
-                var errorMessage by remember { mutableStateOf<String?>(null) }
-
-                AlertDialog(
-                    onDismissRequest = { showOwnerLoginDialog = false },
-                    title = {
-                        Row(
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.spacedBy(8.dp)
-                        ) {
-                            Text(text = "👑", fontSize = 22.sp)
-                            Text(text = "دخول المالك والمدير العام", fontWeight = FontWeight.Bold)
+        // Dialog: Owner Direct Login
+        if (showOwnerLoginDialog) {
+            AlertDialog(
+                onDismissRequest = {
+                    showOwnerLoginDialog = false
+                    ownerLoginError = ""
+                    ownerPasswordInput = ""
+                },
+                title = { Text("تسجيل دخول المالك والمدير العام") },
+                text = {
+                    Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                        Text("رقم هاتف المالك: 782916997")
+                        OutlinedTextField(
+                            value = ownerPasswordInput,
+                            onValueChange = {
+                                ownerPasswordInput = it
+                                ownerLoginError = ""
+                            },
+                            label = { Text("كلمة سر المالك") },
+                            visualTransformation = PasswordVisualTransformation(),
+                            singleLine = true,
+                            modifier = Modifier.fillMaxWidth()
+                        )
+                        if (ownerLoginError.isNotEmpty()) {
+                            Text(ownerLoginError, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall)
                         }
-                    },
-                    text = {
-                        Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                            Text(
-                                text = "هذا القسم مخصص لإدارة المنصة والاشتراكات والمحافظ وأكواد التفعيل.",
-                                style = MaterialTheme.typography.bodySmall.copy(color = MaterialTheme.colorScheme.onSurfaceVariant)
-                            )
-
-                            OutlinedTextField(
-                                value = adminPassword,
-                                onValueChange = { adminPassword = it },
-                                label = { Text("كلمة مرور المالك") },
-                                placeholder = { Text("أدخل كلمة مرور المالك السرية") },
-                                visualTransformation = androidx.compose.ui.text.input.PasswordVisualTransformation(),
-                                modifier = Modifier.fillMaxWidth()
-                            )
-
-                            if (errorMessage != null) {
-                                Text(
-                                    text = errorMessage ?: "",
-                                    color = MaterialTheme.colorScheme.error,
-                                    style = MaterialTheme.typography.bodySmall
+                    }
+                },
+                confirmButton = {
+                    Button(
+                        onClick = {
+                            if (ownerPasswordInput.isBlank()) {
+                                ownerLoginError = "يرجى كتابة كلمة المرور"
+                            } else {
+                                viewModel.login(
+                                    phoneOrEmail = "782916997",
+                                    pass = ownerPasswordInput,
+                                    onError = { err -> ownerLoginError = err },
+                                    onSuccess = {
+                                        showOwnerLoginDialog = false
+                                        ownerPasswordInput = ""
+                                        ownerLoginError = ""
+                                        viewModel.navigateTo(Screen.AdminDashboard)
+                                    }
                                 )
                             }
                         }
-                    },
-                    confirmButton = {
-                        Button(
-                            onClick = {
-                                if (adminPassword.isNotBlank()) {
-                                    viewModel.login(
-                                        phoneOrEmail = "782916997",
-                                        pass = adminPassword,
-                                        onError = { errorMessage = it }
-                                    ) {
-                                        showOwnerLoginDialog = false
-                                        viewModel.navigateTo(Screen.AdminDashboard)
-                                    }
-                                } else {
-                                    errorMessage = "يرجى كتابة كلمة المرور"
-                                }
-                            }
-                        ) {
-                            Text("دخول")
-                        }
-                    },
-                    dismissButton = {
-                        TextButton(onClick = { showOwnerLoginDialog = false }) {
-                            Text("إلغاء")
-                        }
+                    ) {
+                        Text("دخول للوحة الإدارة")
                     }
-                )
-            }
+                },
+                dismissButton = {
+                    TextButton(onClick = {
+                        showOwnerLoginDialog = false
+                        ownerLoginError = ""
+                        ownerPasswordInput = ""
+                    }) {
+                        Text("إلغاء")
+                    }
+                }
+            )
         }
     }
 }

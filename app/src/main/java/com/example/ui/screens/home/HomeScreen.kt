@@ -10,16 +10,13 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
-import androidx.compose.material.icons.outlined.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
-import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
@@ -28,603 +25,392 @@ import androidx.compose.ui.unit.sp
 import com.example.data.local.entities.SubjectEntity
 import com.example.ui.MainViewModel
 import com.example.ui.Screen
-import com.example.ui.components.RaqeebHeroHeader
-import com.example.ui.components.RaqeebLogoEmblem
-import com.example.ui.components.SectionHeader
-import com.example.ui.components.SubscriptionStatusBadge
-import com.example.ui.theme.*
 
+data class GridActionItem(
+    val title: String,
+    val subtitle: String,
+    val icon: ImageVector,
+    val color: Color,
+    val screen: Screen
+)
+
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun HomeScreen(
     viewModel: MainViewModel,
-    modifier: Modifier = Modifier
+    onNavigate: (Screen) -> Unit
 ) {
+    val subjects by viewModel.allSubjects.collectAsState()
     val currentUser by viewModel.currentUser.collectAsState()
     val isSubscribed by viewModel.isSubscribed.collectAsState()
-    val activeSub by viewModel.activeSubscription.collectAsState()
-    val subjects by viewModel.allSubjects.collectAsState()
-    val completedLessonIds by viewModel.completedLessonIds.collectAsState()
-    val totalLessons by viewModel.database.curriculumDao().getLessonCount().collectAsState(initial = 10)
+    val booklets by viewModel.allDocumentBooklets.collectAsState()
 
-    val progressPercent = if (totalLessons > 0) {
-        ((completedLessonIds.size * 100) / totalLessons).coerceIn(0, 100)
-    } else 0
-
-    val daysRemaining = remember(activeSub) {
-        activeSub?.let {
-            val diff = it.endDate - System.currentTimeMillis()
-            (diff / (1000 * 60 * 60 * 24)).coerceAtLeast(0)
-        } ?: 0L
-    }
+    val actionItems = listOf(
+        GridActionItem(
+            title = "الملازم والملفات",
+            subtitle = "PDF & Word",
+            icon = Icons.Default.Description,
+            color = Color(0xFFD97706),
+            screen = Screen.PdfViewer
+        ),
+        GridActionItem(
+            title = "حل سؤالي",
+            subtitle = "حل حتى 50 سؤالاً",
+            icon = Icons.Default.AutoAwesome,
+            color = Color(0xFF2563EB),
+            screen = Screen.SolveMyQuestion
+        ),
+        GridActionItem(
+            title = "المواد والدروس",
+            subtitle = "المنهج الوزاري",
+            icon = Icons.Default.MenuBook,
+            color = Color(0xFF0D9488),
+            screen = Screen.Subjects
+        ),
+        GridActionItem(
+            title = "الاختبارات الوزارية",
+            subtitle = "أتمتة وزارية",
+            icon = Icons.Default.Assignment,
+            color = Color(0xFF7C3AED),
+            screen = Screen.Exams
+        ),
+        GridActionItem(
+            title = "اشرح لي الدرس",
+            subtitle = "تبسيط المفاهيم",
+            icon = Icons.Default.Lightbulb,
+            color = Color(0xFFEA580C),
+            screen = Screen.ExplainMe
+        ),
+        GridActionItem(
+            title = "اسأل أستاذي الذكي",
+            subtitle = "نص • فيديو • رسم • PDF",
+            icon = Icons.Default.School,
+            color = Color(0xFF0284C7),
+            screen = Screen.SmartTutor
+        ),
+        GridActionItem(
+            title = "الآلة الحاسبة",
+            subtitle = "علمية ومصفوفات",
+            icon = Icons.Default.Calculate,
+            color = Color(0xFF4F46E5),
+            screen = Screen.ScientificCalculator
+        ),
+        GridActionItem(
+            title = "لوحة الإدارة",
+            subtitle = "صلاحيات المالك",
+            icon = Icons.Default.AdminPanelSettings,
+            color = Color(0xFFDC2626),
+            screen = Screen.AdminDashboard
+        )
+    )
 
     LazyColumn(
-        modifier = modifier
+        modifier = Modifier
             .fillMaxSize()
-            .testTag("home_screen_content"),
-        contentPadding = PaddingValues(bottom = 24.dp),
-        verticalArrangement = Arrangement.spacedBy(16.dp)
+            .padding(horizontal = 16.dp),
+        verticalArrangement = Arrangement.spacedBy(16.dp),
+        contentPadding = PaddingValues(top = 16.dp, bottom = 32.dp)
     ) {
-        // 1. الشعار والهوية البصرية الرسمية "رقيب للتعليم الثانوي"
-        item {
-            Box(modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp)) {
-                RaqeebHeroHeader(
-                    onUnderstandClick = { viewModel.navigateTo(Screen.Subjects) },
-                    onSolveClick = { viewModel.navigateTo(Screen.SolveMyQuestion) },
-                    onQuizClick = { viewModel.navigateTo(Screen.Exams) },
-                    onExcelClick = { viewModel.navigateTo(Screen.Profile) }
-                )
-            }
-        }
-
-        // 2. بطاقة الطالب والترحيب ونسبة الإنجاز
+        // Hero Card
         item {
             Card(
-                colors = CardDefaults.cardColors(containerColor = Color.Transparent),
+                modifier = Modifier.fillMaxWidth(),
                 shape = RoundedCornerShape(20.dp),
-                modifier = Modifier
-                    .padding(horizontal = 16.dp, vertical = 2.dp)
-                    .fillMaxWidth()
-            ) {
-                Box(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .background(
-                            Brush.linearGradient(
-                                colors = listOf(RaqeebDeepNavy, RaqeebRoyalBlue, RaqeebElectricBlue)
-                            ),
-                            RoundedCornerShape(20.dp)
-                        )
-                        .padding(18.dp)
-                ) {
-                    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                        Row(
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.SpaceBetween,
-                            modifier = Modifier.fillMaxWidth()
-                        ) {
-                            Column(modifier = Modifier.weight(1f)) {
-                                Text(
-                                    text = "أهلاً بك، ${currentUser?.fullName ?: "طالبنا المتميز"} 👋",
-                                    style = MaterialTheme.typography.titleMedium.copy(
-                                        color = Color.White,
-                                        fontWeight = FontWeight.Bold
-                                    )
-                                )
-                                Text(
-                                    text = "الصف الثالث الثانوي • المنهج اليمني المعتمد",
-                                    style = MaterialTheme.typography.bodySmall.copy(
-                                        color = RaqeebCyanAccent,
-                                        fontWeight = FontWeight.SemiBold
-                                    )
-                                )
-                                Surface(
-                                    shape = RoundedCornerShape(6.dp),
-                                    color = Color.White.copy(alpha = 0.2f),
-                                    modifier = Modifier.padding(top = 2.dp)
-                                ) {
-                                    Text(
-                                        text = "الإصدار الثالث 3.0 (V3.0) 🇾🇪",
-                                        color = Color.White,
-                                        fontSize = 10.sp,
-                                        fontWeight = FontWeight.Bold,
-                                        modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
-                                    )
-                                }
-                            }
-
-                            RaqeebLogoEmblem(
-                                size = 48.dp,
-                                showBackground = true
-                            )
-                        }
-
-                        Text(
-                            text = "شروحات مبسطة خطوة بخطوة لجميع مواد المنهج الوزاري مع حلول المسائل بالاختيار والذكاء الاصطناعي.",
-                            style = MaterialTheme.typography.bodyMedium.copy(
-                                color = Color.White.copy(alpha = 0.9f),
-                                fontSize = 13.sp
-                            )
-                        )
-
-                        Spacer(modifier = Modifier.height(4.dp))
-
-                        // Progress Bar Mini
-                        Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                            Row(
-                                modifier = Modifier.fillMaxWidth(),
-                                horizontalArrangement = Arrangement.SpaceBetween
-                            ) {
-                                Text(
-                                    text = "نسبة تقدمك في المنهج",
-                                    style = MaterialTheme.typography.labelMedium.copy(color = Color.White.copy(alpha = 0.85f))
-                                )
-                                Text(
-                                    text = "$progressPercent%",
-                                    style = MaterialTheme.typography.labelMedium.copy(
-                                        color = AmberLight,
-                                        fontWeight = FontWeight.Bold
-                                    )
-                                )
-                            }
-                            LinearProgressIndicator(
-                                progress = { progressPercent / 100f },
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .height(8.dp)
-                                    .clip(CircleShape),
-                                color = AmberLight,
-                                trackColor = Color.White.copy(alpha = 0.25f)
-                            )
-                        }
-                    }
-                }
-            }
-        }
-
-        // Subscription Banner
-        item {
-            Box(modifier = Modifier.padding(horizontal = 16.dp)) {
-                SubscriptionStatusBadge(
-                    isSubscribed = isSubscribed,
-                    planName = activeSub?.planName,
-                    daysRemaining = daysRemaining,
-                    onClick = { viewModel.navigateTo(Screen.Subscription) }
+                colors = CardDefaults.cardColors(
+                    containerColor = MaterialTheme.colorScheme.primaryContainer
                 )
-            }
-        }
-
-        // Owner Access Banner / Icon
-        item {
-            Box(modifier = Modifier.padding(horizontal = 16.dp)) {
-                Surface(
-                    onClick = { viewModel.navigateTo(Screen.AdminDashboard) },
-                    shape = RoundedCornerShape(16.dp),
-                    color = Color(0xFFFEF3C7),
-                    border = androidx.compose.foundation.BorderStroke(1.5.dp, AmberSecondary),
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .testTag("owner_home_banner")
+            ) {
+                Column(
+                    modifier = Modifier.padding(20.dp),
+                    verticalArrangement = Arrangement.spacedBy(10.dp)
                 ) {
                     Row(
-                        modifier = Modifier
-                            .padding(14.dp)
-                            .fillMaxWidth(),
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(12.dp)
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
                     ) {
-                        Box(
-                            modifier = Modifier
-                                .size(44.dp)
-                                .clip(CircleShape)
-                                .background(AmberSecondary),
-                            contentAlignment = Alignment.Center
-                        ) {
-                            Text(text = "👑", fontSize = 22.sp)
-                        }
-
-                        Column(modifier = Modifier.weight(1f)) {
+                        Column {
                             Text(
-                                text = if (currentUser?.role == "ADMIN") "👑 لوحة تحكم المالك (مفتوحة)" else "👑 أيقونة المالك للدخول والتحكم",
-                                style = MaterialTheme.typography.titleSmall.copy(
-                                    fontWeight = FontWeight.ExtraBold,
-                                    color = Color(0xFF78350F),
-                                    fontSize = 15.sp
-                                )
-                            )
-                            Text(
-                                text = "دخول المالك لإدارة المنصة والاشتراكات والمحافظ وتوليد الأكواد",
-                                style = MaterialTheme.typography.bodySmall.copy(
-                                    color = Color(0xFF92400E),
-                                    fontSize = 11.sp
-                                )
-                            )
-                        }
-
-                        Surface(
-                            shape = RoundedCornerShape(8.dp),
-                            color = AmberSecondary
-                        ) {
-                            Text(
-                                text = if (currentUser?.role == "ADMIN") "اللوحة ⚙️" else "دخول 🔐",
-                                color = Color.White,
+                                text = "أهلاً بك يا ${currentUser?.fullName ?: "طالبنا المتفوق"}! 👋",
+                                style = MaterialTheme.typography.titleLarge,
                                 fontWeight = FontWeight.Bold,
-                                fontSize = 11.sp,
-                                modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp)
+                                color = MaterialTheme.colorScheme.onPrimaryContainer
                             )
+                            Text(
+                                text = "الصف الثالث الثانوي العلمي - المنهج اليمني الوزاري",
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.8f)
+                            )
+                        }
+                        Surface(
+                            shape = RoundedCornerShape(12.dp),
+                            color = if (isSubscribed) Color(0xFF10B981) else MaterialTheme.colorScheme.primary
+                        ) {
+                            Text(
+                                text = if (isSubscribed) "مشترك نشط ✓" else "طالب رسمي",
+                                modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp),
+                                color = Color.White,
+                                style = MaterialTheme.typography.labelMedium,
+                                fontWeight = FontWeight.Bold
+                            )
+                        }
+                    }
+
+                    // Direct Quick Action: Ask Smart Teacher
+                    Button(
+                        onClick = { onNavigate(Screen.SmartTutor) },
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = RoundedCornerShape(12.dp),
+                        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF0284C7))
+                    ) {
+                        Icon(Icons.Default.School, contentDescription = null, modifier = Modifier.size(20.dp), tint = Color.White)
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text("اسأل أستاذي الذكي (نص • فيديو • رسم • PDF)", fontWeight = FontWeight.Bold, color = Color.White)
+                    }
+
+                    // Direct Quick Action for PDF Booklets
+                    OutlinedButton(
+                        onClick = { onNavigate(Screen.PdfViewer) },
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = RoundedCornerShape(12.dp)
+                    ) {
+                        Icon(Icons.Default.Download, contentDescription = null, modifier = Modifier.size(20.dp))
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text("تصفح وتحميل ملازم الدروس (PDF & Word)", fontWeight = FontWeight.Bold)
+                    }
+
+                    if (currentUser == null) {
+                        FilledTonalButton(
+                            onClick = { onNavigate(Screen.Login) },
+                            modifier = Modifier.fillMaxWidth(),
+                            shape = RoundedCornerShape(12.dp)
+                        ) {
+                            Icon(Icons.Default.Login, contentDescription = null, modifier = Modifier.size(18.dp))
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Text("تسجيل الدخول / إنشاء حساب جديد واشتراك", fontWeight = FontWeight.Bold)
                         }
                     }
                 }
             }
         }
 
-        // 🧮 Scientific Calculator Prominent Banner
+        // Section Title: Quick Actions Grid
         item {
-            Box(modifier = Modifier.padding(horizontal = 16.dp)) {
-                Surface(
-                    onClick = { viewModel.navigateTo(Screen.ScientificCalculator) },
-                    shape = RoundedCornerShape(18.dp),
-                    color = Color(0xFFF0FDF4),
-                    border = androidx.compose.foundation.BorderStroke(1.5.dp, Color(0xFF16A34A)),
-                    shadowElevation = 2.dp,
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .testTag("scientific_calculator_home_banner")
-                ) {
-                    Row(
-                        modifier = Modifier
-                            .padding(16.dp)
-                            .fillMaxWidth(),
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(14.dp)
-                    ) {
-                        Box(
-                            modifier = Modifier
-                                .size(52.dp)
-                                .clip(RoundedCornerShape(14.dp))
-                                .background(Color(0xFF16A34A)),
-                            contentAlignment = Alignment.Center
-                        ) {
-                            Text(text = "🧮", fontSize = 28.sp)
-                        }
-
-                        Column(modifier = Modifier.weight(1f)) {
-                            Row(
-                                verticalAlignment = Alignment.CenterVertically,
-                                horizontalArrangement = Arrangement.spacedBy(8.dp)
-                            ) {
-                                Text(
-                                    text = "الحاسبة العلمية",
-                                    style = MaterialTheme.typography.titleMedium.copy(
-                                        fontWeight = FontWeight.ExtraBold,
-                                        color = Color(0xFF14532D),
-                                        fontSize = 17.sp
-                                    )
-                                )
-                                Surface(
-                                    shape = RoundedCornerShape(6.dp),
-                                    color = Color(0xFFDCFCE7)
-                                ) {
-                                    Text(
-                                        text = "جديد ✨",
-                                        color = Color(0xFF15803D),
-                                        fontSize = 10.sp,
-                                        fontWeight = FontWeight.Bold,
-                                        modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
-                                    )
-                                }
-                            }
-                            Spacer(modifier = Modifier.height(3.dp))
-                            Text(
-                                text = "احسب العمليات والمعادلات بسهولة",
-                                style = MaterialTheme.typography.bodyMedium.copy(
-                                    color = Color(0xFF166534),
-                                    fontSize = 12.sp,
-                                    lineHeight = 18.sp
-                                )
-                            )
-                            Text(
-                                text = "كسور حقيقية • أعداد مركبة • حل معادلات • مصفوفات • إحصاء",
-                                style = MaterialTheme.typography.labelSmall.copy(
-                                    color = Color(0xFF15803D).copy(alpha = 0.85f),
-                                    fontSize = 10.sp
-                                )
-                            )
-                        }
-
-                        Surface(
-                            shape = RoundedCornerShape(10.dp),
-                            color = Color(0xFF16A34A)
-                        ) {
-                            Text(
-                                text = "افتح 🧮",
-                                color = Color.White,
-                                fontWeight = FontWeight.Bold,
-                                fontSize = 12.sp,
-                                modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp)
-                            )
-                        }
-                    }
-                }
-            }
+            Text(
+                text = "الخدمات السريعة",
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.Bold
+            )
         }
 
-        // Main Grid Navigation Items
+        // 2x4 Grid
         item {
-            SectionHeader(
-                title = "الأقسام الرئيسية",
-                subtitle = "كل ما يحتاجه طالب الشهادة الثانوية للوصول إلى التفوق"
-            )
-
-            val gridItems = listOf(
-                GridActionItem(
-                    title = "🧮 الحاسبة العلمية",
-                    desc = "احسب العمليات والمعادلات بسهولة",
-                    bgColor = Color(0xFFF0FDF4),
-                    textColor = Color(0xFF15803D),
-                    screen = Screen.ScientificCalculator
-                ),
-                GridActionItem(
-                    title = "📚 المواد الدراسية",
-                    desc = "شروحات المنهج والدروس",
-                    bgColor = Color(0xFFEFF6FF),
-                    textColor = NavyPrimary,
-                    screen = Screen.Subjects
-                ),
-                GridActionItem(
-                    title = "🧠 المعلم الذكي",
-                    desc = "مدرس يمني يساندك 24/7",
-                    bgColor = Color(0xFFFEF3C7),
-                    textColor = AmberSecondary,
-                    screen = Screen.SmartTutor
-                ),
-                GridActionItem(
-                    title = "💡 خدمة اشرح لي",
-                    desc = "شرح مبسط وتشبيهات واقعية",
-                    bgColor = Color(0xFFFFFBEB),
-                    textColor = Color(0xFFB45309),
-                    screen = Screen.ExplainMe
-                ),
-                GridActionItem(
-                    title = "🛡️ حل سؤالي الدقيق",
-                    desc = "حل موثوق وتجنب الأخطاء",
-                    bgColor = Color(0xFFECFDF5),
-                    textColor = TealAccent,
-                    screen = Screen.SolveMyQuestion
-                ),
-                GridActionItem(
-                    title = "📝 اختبر نفسك",
-                    desc = "نماذج وزارية وتجريبية",
-                    bgColor = Color(0xFFFDF2F8),
-                    textColor = Color(0xFFBE185D),
-                    screen = Screen.Exams
-                ),
-                GridActionItem(
-                    title = "📖 بنك الأسئلة",
-                    desc = "تصنيفات واختبار عشوائي",
-                    bgColor = Color(0xFFF5F3FF),
-                    textColor = Color(0xFF6D28D9),
-                    screen = Screen.QuestionBank
-                ),
-                GridActionItem(
-                    title = "🔍 البحث الشامل",
-                    desc = "ابحث عن أي قانون أو درس",
-                    bgColor = Color(0xFFF1F5F9),
-                    textColor = TextPrimaryLight,
-                    screen = Screen.Search
-                ),
-                GridActionItem(
-                    title = "⭐ المفضلة",
-                    desc = "الدروس والقوانين المحفوظة",
-                    bgColor = Color(0xFFFFFBEB),
-                    textColor = Color(0xFFB45309),
-                    screen = Screen.Favorites
-                ),
-                GridActionItem(
-                    title = "📊 تقدمي الدراسي",
-                    desc = "إحصائيات الإنجاز والدرجات",
-                    bgColor = Color(0xFFECFEFF),
-                    textColor = Color(0xFF0369A1),
-                    screen = Screen.Progress
-                ),
-                GridActionItem(
-                    title = "💳 اشتراكي",
-                    desc = "المحافظ اليمنية وتفعيل الأكواد",
-                    bgColor = CardGold,
-                    textColor = Color(0xFF92400E),
-                    screen = Screen.Subscription
-                ),
-                GridActionItem(
-                    title = "👤 حسابي",
-                    desc = "الملف الشخصي والإعدادات",
-                    bgColor = Color(0xFFF8FAFC),
-                    textColor = NavyPrimary,
-                    screen = Screen.Profile
-                ),
-                GridActionItem(
-                    title = "👑 دخول المالك",
-                    desc = "لوحة التحكم والإدارة العامة",
-                    bgColor = CardGold,
-                    textColor = Color(0xFF78350F),
-                    screen = Screen.AdminDashboard
-                )
-            )
-
-            Column(
-                modifier = Modifier
-                    .padding(horizontal = 16.dp)
-                    .fillMaxWidth(),
-                verticalArrangement = Arrangement.spacedBy(10.dp)
-            ) {
-                gridItems.chunked(2).forEach { rowItems ->
+            Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                for (row in actionItems.chunked(2)) {
                     Row(
                         modifier = Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.spacedBy(10.dp)
                     ) {
-                        rowItems.forEach { item ->
+                        for (item in row) {
                             Card(
-                                onClick = { viewModel.navigateTo(item.screen) },
-                                colors = CardDefaults.cardColors(containerColor = item.bgColor),
-                                shape = RoundedCornerShape(16.dp),
                                 modifier = Modifier
                                     .weight(1f)
                                     .height(96.dp)
-                                    .testTag("nav_card_${item.screen.javaClass.simpleName}")
+                                    .clickable { onNavigate(item.screen) },
+                                shape = RoundedCornerShape(14.dp),
+                                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)
                             ) {
-                                Column(
+                                Row(
                                     modifier = Modifier
                                         .fillMaxSize()
                                         .padding(12.dp),
-                                    verticalArrangement = Arrangement.Center
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.spacedBy(12.dp)
                                 ) {
-                                    Text(
-                                        text = item.title,
-                                        style = MaterialTheme.typography.titleSmall.copy(
+                                    Box(
+                                        modifier = Modifier
+                                            .size(44.dp)
+                                            .clip(CircleShape)
+                                            .background(item.color.copy(alpha = 0.15f)),
+                                        contentAlignment = Alignment.Center
+                                    ) {
+                                        Icon(
+                                            imageVector = item.icon,
+                                            contentDescription = null,
+                                            tint = item.color,
+                                            modifier = Modifier.size(24.dp)
+                                        )
+                                    }
+                                    Column {
+                                        Text(
+                                            text = item.title,
+                                            style = MaterialTheme.typography.titleSmall,
                                             fontWeight = FontWeight.Bold,
-                                            color = item.textColor,
-                                            fontSize = 14.sp
-                                        ),
-                                        maxLines = 1,
-                                        overflow = TextOverflow.Ellipsis
-                                    )
-                                    Spacer(modifier = Modifier.height(4.dp))
-                                    Text(
-                                        text = item.desc,
-                                        style = MaterialTheme.typography.bodySmall.copy(
-                                            color = item.textColor.copy(alpha = 0.8f),
-                                            fontSize = 11.sp
-                                        ),
-                                        maxLines = 1,
-                                        overflow = TextOverflow.Ellipsis
-                                    )
+                                            maxLines = 1,
+                                            overflow = TextOverflow.Ellipsis
+                                        )
+                                        Text(
+                                            text = item.subtitle,
+                                            style = MaterialTheme.typography.bodySmall,
+                                            color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
+                                            maxLines = 1
+                                            )
+                                    }
                                 }
                             }
-                        }
-                        if (rowItems.size == 1) {
-                            Spacer(modifier = Modifier.weight(1f))
                         }
                     }
                 }
             }
         }
 
-        // Subjects Carousel
+        // Section Title: Booklets Highlight
         item {
-            SectionHeader(
-                title = "المواد الدراسية (المنهج اليمني)",
-                subtitle = "جميع مواد الصف الثالث الثانوي للقسمين العلمي والأدبي",
-                actionText = "عرض الكل",
-                onActionClick = { viewModel.navigateTo(Screen.Subjects) }
-            )
-
-            LazyRow(
-                contentPadding = PaddingValues(horizontal = 16.dp),
-                horizontalArrangement = Arrangement.spacedBy(12.dp)
-            ) {
-                items(subjects) { subject ->
-                    SubjectCard(
-                        subject = subject,
-                        onClick = { viewModel.selectSubject(subject) }
-                    )
-                }
-            }
-        }
-    }
-}
-
-data class GridActionItem(
-    val title: String,
-    val desc: String,
-    val bgColor: Color,
-    val textColor: Color,
-    val screen: Screen
-)
-
-@Composable
-fun SubjectCard(
-    subject: SubjectEntity,
-    onClick: () -> Unit,
-    modifier: Modifier = Modifier
-) {
-    Card(
-        onClick = onClick,
-        colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.surface
-        ),
-        shape = RoundedCornerShape(16.dp),
-        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
-        modifier = modifier
-            .width(160.dp)
-            .height(130.dp)
-    ) {
-        Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(14.dp),
-            verticalArrangement = Arrangement.SpaceBetween
-        ) {
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Box(
-                    modifier = Modifier
-                        .size(36.dp)
-                        .clip(CircleShape)
-                        .background(MaterialTheme.colorScheme.primaryContainer),
-                    contentAlignment = Alignment.Center
-                ) {
-                    val iconText = when (subject.iconName) {
-                        "math" -> "📐"
-                        "physics" -> "⚡"
-                        "chemistry" -> "🧪"
-                        "biology" -> "🧬"
-                        "arabic" -> "📖"
-                        "english" -> "🔤"
-                        "islamic" -> "🕌"
-                        "history" -> "🏛️"
-                        "geography" -> "🌍"
-                        else -> "📚"
-                    }
-                    Text(text = iconText, fontSize = 18.sp)
-                }
-
-                Surface(
-                    shape = RoundedCornerShape(6.dp),
-                    color = if (subject.track == "SCIENTIFIC") Color(0xFFEFF6FF) else Color(0xFFFFFBEB)
-                ) {
-                    Text(
-                        text = if (subject.track == "SCIENTIFIC") "علمي" else if (subject.track == "LITERARY") "أدبي" else "مشترك",
-                        style = MaterialTheme.typography.labelSmall.copy(
-                            color = if (subject.track == "SCIENTIFIC") NavyPrimary else AmberSecondary,
-                            fontWeight = FontWeight.Bold,
-                            fontSize = 10.sp
-                        ),
-                        modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
-                    )
+                Text(
+                    text = "أحدث الملازم والملفات الدراسية",
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.Bold
+                )
+                TextButton(onClick = { onNavigate(Screen.PdfViewer) }) {
+                    Text("عرض الكل (${booklets.size})")
                 }
             }
+        }
 
-            Column {
+        // Horizontal Booklets Preview
+        item {
+            LazyRow(
+                horizontalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
+                items(booklets.take(5)) { booklet ->
+                    Card(
+                        modifier = Modifier
+                            .width(220.dp)
+                            .clickable { viewModel.selectBooklet(booklet) },
+                        shape = RoundedCornerShape(14.dp),
+                        colors = CardDefaults.cardColors(
+                            containerColor = if (booklet.fileType == "PDF") Color(0xFFFEF3C7) else Color(0xFFDBEAFE)
+                        )
+                    ) {
+                        Column(
+                            modifier = Modifier.padding(14.dp),
+                            verticalArrangement = Arrangement.spacedBy(6.dp)
+                        ) {
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Surface(
+                                    shape = RoundedCornerShape(6.dp),
+                                    color = if (booklet.fileType == "PDF") Color(0xFFDC2626) else Color(0xFF2563EB)
+                                ) {
+                                    Text(
+                                        text = booklet.fileType,
+                                        modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp),
+                                        color = Color.White,
+                                        style = MaterialTheme.typography.labelSmall,
+                                        fontWeight = FontWeight.Bold
+                                    )
+                                }
+                                Text(
+                                    text = booklet.fileSize,
+                                    style = MaterialTheme.typography.labelSmall,
+                                    color = Color.DarkGray
+                                )
+                            }
+                            Text(
+                                text = booklet.title,
+                                style = MaterialTheme.typography.titleSmall,
+                                fontWeight = FontWeight.Bold,
+                                color = Color.Black,
+                                maxLines = 2,
+                                overflow = TextOverflow.Ellipsis
+                            )
+                            Text(
+                                text = booklet.subjectName,
+                                style = MaterialTheme.typography.bodySmall,
+                                color = Color.Gray
+                            )
+                        }
+                    }
+                }
+            }
+        }
+
+        // Section Title: Subjects
+        item {
+            Text(
+                text = "المواد الدراسية المقررة",
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.Bold
+            )
+        }
+
+        items(subjects) { subject ->
+            SubjectCard(
+                subject = subject,
+                onClick = { viewModel.selectSubject(subject) }
+            )
+        }
+    }
+}
+
+@Composable
+fun SubjectCard(
+    subject: SubjectEntity,
+    onClick: () -> Unit
+) {
+    Card(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable(onClick = onClick),
+        shape = RoundedCornerShape(14.dp),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(16.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(16.dp)
+        ) {
+            Box(
+                modifier = Modifier
+                    .size(50.dp)
+                    .clip(RoundedCornerShape(12.dp))
+                    .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.1f)),
+                contentAlignment = Alignment.Center
+            ) {
+                Text(
+                    text = subject.iconRes,
+                    fontSize = 24.sp
+                )
+            }
+            Column(modifier = Modifier.weight(1f)) {
                 Text(
                     text = subject.name,
-                    style = MaterialTheme.typography.titleMedium.copy(
-                        fontWeight = FontWeight.Bold,
-                        fontSize = 15.sp
-                    ),
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.Bold
                 )
                 Text(
                     text = subject.description,
-                    style = MaterialTheme.typography.bodySmall.copy(
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        fontSize = 11.sp
-                    ),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.8f),
                     maxLines = 2,
                     overflow = TextOverflow.Ellipsis
                 )
             }
+            Icon(
+                imageVector = Icons.Default.ChevronLeft,
+                contentDescription = null,
+                tint = MaterialTheme.colorScheme.onSurfaceVariant
+            )
         }
     }
 }

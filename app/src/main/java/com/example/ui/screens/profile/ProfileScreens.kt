@@ -9,7 +9,6 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
-import androidx.compose.material.icons.outlined.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -17,332 +16,189 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
-import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.example.data.local.entities.FavoriteEntity
-import com.example.data.local.entities.LessonEntity
 import com.example.ui.MainViewModel
 import com.example.ui.Screen
-import com.example.ui.components.RaqeebLogoEmblem
-import com.example.ui.theme.*
-import java.text.SimpleDateFormat
-import java.util.*
 
-// -------------------------------------------------------------
-// PROFILE SCREEN
-// -------------------------------------------------------------
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ProfileScreen(
     viewModel: MainViewModel,
-    modifier: Modifier = Modifier
+    onNavigate: (Screen) -> Unit
 ) {
     val currentUser by viewModel.currentUser.collectAsState()
     val isSubscribed by viewModel.isSubscribed.collectAsState()
-    val activeSub by viewModel.activeSubscription.collectAsState()
+    val isDarkMode by viewModel.isDarkMode.collectAsState()
 
-    var showChangePassDialog by remember { mutableStateOf(false) }
-    var showDeleteConfirmDialog by remember { mutableStateOf(false) }
-
-    val dateFormat = SimpleDateFormat("yyyy/MM/dd", Locale.getDefault())
-    val daysRemaining = remember(activeSub) {
-        activeSub?.let {
-            val diff = it.endDate - System.currentTimeMillis()
-            (diff / (1000 * 60 * 60 * 24)).coerceAtLeast(0)
-        } ?: 0L
-    }
-
-    LazyColumn(
-        modifier = modifier
-            .fillMaxSize()
-            .padding(16.dp)
-            .testTag("profile_screen_content"),
-        verticalArrangement = Arrangement.spacedBy(16.dp)
-    ) {
-        // User Info Card
-        item {
-            Card(
-                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer),
-                shape = RoundedCornerShape(20.dp),
-                modifier = Modifier.fillMaxWidth()
-            ) {
-                Row(
-                    modifier = Modifier
-                        .padding(20.dp)
-                        .fillMaxWidth(),
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(16.dp)
-                ) {
-                    Box(
-                        modifier = Modifier
-                            .size(60.dp)
-                            .clip(CircleShape)
-                            .background(MaterialTheme.colorScheme.primary),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Text(text = "🎓", fontSize = 28.sp)
-                    }
-
-                    Column(modifier = Modifier.weight(1f)) {
-                        Text(
-                            text = currentUser?.fullName ?: "طالب رقيب للتعليم الثانوي",
-                            style = MaterialTheme.typography.titleLarge.copy(
-                                fontWeight = FontWeight.Bold,
-                                color = MaterialTheme.colorScheme.onPrimaryContainer
-                            )
-                        )
-                        Text(
-                            text = "${currentUser?.grade ?: "الصف الثالث الثانوي"} • مسار ${currentUser?.track ?: "علمي"}",
-                            style = MaterialTheme.typography.bodyMedium.copy(
-                                color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.85f)
-                            )
-                        )
-                        Text(
-                            text = "الهاتف: ${currentUser?.phoneOrEmail ?: "غير مسجل"}",
-                            style = MaterialTheme.typography.bodySmall.copy(
-                                color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.7f),
-                                fontSize = 12.sp
-                            )
-                        )
-                    }
-                }
-            }
+    Scaffold(
+        topBar = {
+            TopAppBar(title = { Text("الملف الشخصي") })
         }
-
-        // Subscription Summary Card
-        item {
-            Card(
-                colors = CardDefaults.cardColors(
-                    containerColor = if (isSubscribed) CardNavy else CardGold
-                ),
-                shape = RoundedCornerShape(16.dp),
-                modifier = Modifier.fillMaxWidth()
-            ) {
-                Column(
-                    modifier = Modifier
-                        .padding(16.dp)
-                        .fillMaxWidth(),
-                    verticalArrangement = Arrangement.spacedBy(6.dp)
+    ) { padding ->
+        LazyColumn(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(padding)
+                .padding(horizontal = 16.dp),
+            verticalArrangement = Arrangement.spacedBy(14.dp),
+            contentPadding = PaddingValues(top = 8.dp, bottom = 32.dp)
+        ) {
+            // User Header
+            item {
+                Card(
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(16.dp),
+                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer)
                 ) {
                     Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(20.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(16.dp)
                     ) {
-                        Text(
-                            text = if (isSubscribed) "الاشتراك الحالي: ${activeSub?.planName}" else "الاشتراك الحالي: مجاني",
-                            style = MaterialTheme.typography.titleMedium.copy(
-                                fontWeight = FontWeight.Bold,
-                                color = if (isSubscribed) NavyPrimary else AmberSecondary
-                            )
-                        )
-                        TextButton(onClick = { viewModel.navigateTo(Screen.Subscription) }) {
+                        Box(
+                            modifier = Modifier
+                                .size(60.dp)
+                                .clip(CircleShape)
+                                .background(MaterialTheme.colorScheme.primary),
+                            contentAlignment = Alignment.Center
+                        ) {
                             Text(
-                                text = if (isSubscribed) "تجديد / ترقية" else "ترقية الآن",
+                                text = currentUser?.fullName?.take(1) ?: "ط",
+                                color = Color.White,
+                                fontSize = 24.sp,
+                                fontWeight = FontWeight.Bold
+                            )
+                        }
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text(
+                                text = currentUser?.fullName ?: "زائر",
+                                style = MaterialTheme.typography.titleMedium,
+                                fontWeight = FontWeight.Bold
+                            )
+                            Text(
+                                text = currentUser?.phoneOrEmail ?: "غير مسجل",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.8f)
+                            )
+                            Text(
+                                text = if (isSubscribed) "مشترك نشط ✓" else "نسخة مجانية",
+                                style = MaterialTheme.typography.labelSmall,
+                                color = if (isSubscribed) Color(0xFF16A34A) else Color(0xFFEA580C),
                                 fontWeight = FontWeight.Bold
                             )
                         }
                     }
-
-                    if (isSubscribed && activeSub != null) {
-                        Text(
-                            text = "بداية الاشتراك: ${dateFormat.format(Date(activeSub!!.startDate))}",
-                            style = MaterialTheme.typography.bodySmall
-                        )
-                        Text(
-                            text = "تاريخ الانتهاء: ${dateFormat.format(Date(activeSub!!.endDate))} (متبقي $daysRemaining يوم)",
-                            style = MaterialTheme.typography.bodySmall.copy(fontWeight = FontWeight.SemiBold)
-                        )
-                    }
                 }
             }
-        }
 
-        // Action Menu Items
-        item {
-            Card(
-                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-                shape = RoundedCornerShape(16.dp),
-                elevation = CardDefaults.cardElevation(defaultElevation = 1.dp),
-                modifier = Modifier.fillMaxWidth()
-            ) {
-                Column {
-                    ProfileMenuItem(
-                        icon = Icons.Default.Timeline,
-                        title = "تقدمي الدراسي وإنجازاتي",
-                        onClick = { viewModel.navigateTo(Screen.Progress) }
-                    )
-                    HorizontalDivider(color = MaterialTheme.colorScheme.outline.copy(alpha = 0.2f))
-                    ProfileMenuItem(
-                        icon = Icons.Default.Star,
-                        title = "المفضلة والمحفوظات",
-                        onClick = { viewModel.navigateTo(Screen.Favorites) }
-                    )
-                    HorizontalDivider(color = MaterialTheme.colorScheme.outline.copy(alpha = 0.2f))
-                    ProfileMenuItem(
-                        icon = Icons.Default.Assessment,
-                        title = "سجل الاختبارات السابقة",
-                        onClick = { viewModel.navigateTo(Screen.Exams) }
-                    )
-                    HorizontalDivider(color = MaterialTheme.colorScheme.outline.copy(alpha = 0.2f))
-                    ProfileMenuItem(
-                        icon = Icons.Default.VpnKey,
-                        title = "تفعيل كود اشتراك",
-                        onClick = { viewModel.navigateTo(Screen.ActivateCode) }
-                    )
-                    HorizontalDivider(color = MaterialTheme.colorScheme.outline.copy(alpha = 0.2f))
-                    ProfileMenuItem(
-                        icon = Icons.Default.LockReset,
-                        title = "تغيير كلمة المرور",
-                        onClick = { showChangePassDialog = true }
-                    )
-                    HorizontalDivider(color = MaterialTheme.colorScheme.outline.copy(alpha = 0.2f))
+            // Menu Items
+            item {
+                ProfileMenuItem(
+                    icon = Icons.Default.Favorite,
+                    title = "المفضلة",
+                    subtitle = "الدروس والمسائل المحفوظة",
+                    onClick = { onNavigate(Screen.Favorites) }
+                )
+            }
+
+            item {
+                ProfileMenuItem(
+                    icon = Icons.Default.TrendingUp,
+                    title = "مستوى التقدم الدراسي",
+                    subtitle = "الدروس المكتملة ونتائج الاختبارات",
+                    onClick = { onNavigate(Screen.Progress) }
+                )
+            }
+
+            item {
+                ProfileMenuItem(
+                    icon = Icons.Default.CardMembership,
+                    title = "إدارة الاشتراك",
+                    subtitle = "باقات الاشتراك وتفعيل الأكواد",
+                    onClick = { onNavigate(Screen.Subscription) }
+                )
+            }
+
+            item {
+                ProfileMenuItem(
+                    icon = Icons.Default.Description,
+                    title = "الملازم والملفات الدراسية (PDF & Word)",
+                    subtitle = "تصفح وتحميل المذكرات المرفوعة",
+                    onClick = { onNavigate(Screen.PdfViewer) }
+                )
+            }
+
+            if (currentUser?.role == "ADMIN") {
+                item {
                     ProfileMenuItem(
                         icon = Icons.Default.AdminPanelSettings,
-                        title = if (currentUser?.role == "ADMIN") "لوحة تحكم المالك 👑" else "دخول المالك والتحكم 👑",
-                        onClick = { viewModel.navigateTo(Screen.AdminDashboard) }
+                        title = "لوحة تحكم المالك",
+                        subtitle = "تغيير كلمة السر وإدارة الملفات والطلاب",
+                        onClick = { onNavigate(Screen.AdminDashboard) }
                     )
                 }
             }
-        }
 
-        // Account management buttons
-        item {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(10.dp)
-            ) {
-                OutlinedButton(
-                    onClick = { viewModel.logout() },
-                    shape = RoundedCornerShape(12.dp),
-                    modifier = Modifier.weight(1f)
+            item {
+                Card(
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(14.dp),
+                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)
                 ) {
-                    Icon(imageVector = Icons.Default.Logout, contentDescription = null)
-                    Spacer(modifier = Modifier.width(6.dp))
-                    Text("تسجيل الخروج")
-                }
-
-                Button(
-                    onClick = { showDeleteConfirmDialog = true },
-                    colors = ButtonDefaults.buttonColors(containerColor = ErrorRed),
-                    shape = RoundedCornerShape(12.dp),
-                    modifier = Modifier.weight(1f)
-                ) {
-                    Icon(imageVector = Icons.Default.Delete, contentDescription = null)
-                    Spacer(modifier = Modifier.width(6.dp))
-                    Text("حذف الحساب")
-                }
-            }
-        }
-
-        // Version 2.0 info footer
-        item {
-            Card(
-                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)),
-                shape = RoundedCornerShape(12.dp),
-                modifier = Modifier.fillMaxWidth()
-            ) {
-                Column(
-                    modifier = Modifier.padding(16.dp).fillMaxWidth(),
-                    horizontalAlignment = Alignment.CenterHorizontally,
-                    verticalArrangement = Arrangement.spacedBy(6.dp)
-                ) {
-                    RaqeebLogoEmblem(size = 54.dp, showBackground = true)
-                    Text(
-                        text = "🇾🇪 تطبيق رقيب للتعليم الثانوي",
-                        style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold, color = RaqeebDeepNavy)
-                    )
-                    Surface(
-                        shape = RoundedCornerShape(8.dp),
-                        color = AmberSecondary.copy(alpha = 0.15f),
-                        border = androidx.compose.foundation.BorderStroke(1.dp, AmberSecondary)
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(16.dp),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
                     ) {
-                        Text(
-                            text = "الإصدار الثالث 3.0 (Version 3.0.0)",
-                            style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Bold, color = RaqeebRoyalBlue),
-                            modifier = Modifier.padding(horizontal = 10.dp, vertical = 3.dp)
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(12.dp)
+                        ) {
+                            Icon(Icons.Default.DarkMode, contentDescription = null)
+                            Text("الوضع الليلي (Dark Mode)", fontWeight = FontWeight.SemiBold)
+                        }
+                        Switch(
+                            checked = isDarkMode,
+                            onCheckedChange = { viewModel.toggleDarkMode() }
                         )
                     }
-                    Text(
-                        text = "المنهج الوزاري اليمني المعتمد • نظام الهوية البصرية الرسمية المتكاملة",
-                        style = MaterialTheme.typography.bodySmall.copy(color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 11.sp)
-                    )
                 }
             }
-            Spacer(modifier = Modifier.height(16.dp))
-        }
-    }
 
-    // Change Password Dialog
-    if (showChangePassDialog) {
-        var newPass by remember { mutableStateOf("") }
-        var confirmNewPass by remember { mutableStateOf("") }
-
-        AlertDialog(
-            onDismissRequest = { showChangePassDialog = false },
-            title = { Text("تغيير كلمة المرور") },
-            text = {
-                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    OutlinedTextField(
-                        value = newPass,
-                        onValueChange = { newPass = it },
-                        label = { Text("كلمة المرور الجديدة") }
-                    )
-                    OutlinedTextField(
-                        value = confirmNewPass,
-                        onValueChange = { confirmNewPass = it },
-                        label = { Text("تأكيد كلمة المرور") }
-                    )
-                }
-            },
-            confirmButton = {
-                Button(
-                    onClick = {
-                        if (newPass.isNotBlank() && newPass == confirmNewPass && currentUser != null) {
-                            viewModel.resetPassword(currentUser!!.phoneOrEmail, newPass) {
-                                showChangePassDialog = false
-                            }
-                        } else {
-                            viewModel.toastMessage.value = "يرجى التأكد من تطابق كلمة المرور"
-                        }
+            item {
+                if (currentUser != null) {
+                    Button(
+                        onClick = {
+                            viewModel.logout()
+                            onNavigate(Screen.Login)
+                        },
+                        modifier = Modifier.fillMaxWidth(),
+                        colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error),
+                        shape = RoundedCornerShape(12.dp)
+                    ) {
+                        Icon(Icons.Default.Logout, contentDescription = null)
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text("تسجيل الخروج والتبديل لحساب آخر")
                     }
-                ) {
-                    Text("حفظ")
-                }
-            },
-            dismissButton = {
-                TextButton(onClick = { showChangePassDialog = false }) {
-                    Text("إلغاء")
-                }
-            }
-        )
-    }
-
-    // Delete Account Dialog
-    if (showDeleteConfirmDialog) {
-        AlertDialog(
-            onDismissRequest = { showDeleteConfirmDialog = false },
-            title = { Text("تأكيد حذف الحساب") },
-            text = { Text("هل أنت متأكد من رغبتك في حذف الحساب نهائياً؟ سيتم مسح كافة بيانات التقدم والاختبارات.") },
-            confirmButton = {
-                Button(
-                    onClick = {
-                        showDeleteConfirmDialog = false
-                        currentUser?.id?.let { viewModel.deleteAccount(it) }
-                        viewModel.logout()
-                    },
-                    colors = ButtonDefaults.buttonColors(containerColor = ErrorRed)
-                ) {
-                    Text("نعم، حذف الحساب")
-                }
-            },
-            dismissButton = {
-                TextButton(onClick = { showDeleteConfirmDialog = false }) {
-                    Text("تراجع")
+                } else {
+                    Button(
+                        onClick = { onNavigate(Screen.Login) },
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = RoundedCornerShape(12.dp)
+                    ) {
+                        Icon(Icons.Default.Login, contentDescription = null)
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text("تسجيل الدخول / إنشاء حساب واشتراك جديد")
+                    }
                 }
             }
-        )
+        }
     }
 }
 
@@ -350,97 +206,79 @@ fun ProfileScreen(
 fun ProfileMenuItem(
     icon: ImageVector,
     title: String,
+    subtitle: String,
     onClick: () -> Unit
 ) {
-    Row(
+    Card(
         modifier = Modifier
             .fillMaxWidth()
-            .clickable(onClick = onClick)
-            .padding(16.dp),
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(14.dp)
+            .clickable(onClick = onClick),
+        shape = RoundedCornerShape(14.dp),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)
     ) {
-        Icon(imageVector = icon, contentDescription = null, tint = NavyPrimary)
-        Text(
-            text = title,
-            style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.SemiBold),
-            modifier = Modifier.weight(1f)
-        )
-        Icon(imageVector = Icons.Default.ChevronLeft, contentDescription = null, tint = MaterialTheme.colorScheme.onSurfaceVariant)
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(16.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(14.dp)
+        ) {
+            Icon(icon, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
+            Column(modifier = Modifier.weight(1f)) {
+                Text(title, fontWeight = FontWeight.SemiBold, style = MaterialTheme.typography.bodyLarge)
+                Text(subtitle, style = MaterialTheme.typography.bodySmall, color = Color.Gray)
+            }
+            Icon(Icons.Default.ChevronLeft, contentDescription = null, tint = Color.Gray)
+        }
     }
 }
 
-// -------------------------------------------------------------
-// FAVORITES SCREEN
-// -------------------------------------------------------------
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun FavoritesScreen(
     viewModel: MainViewModel,
-    modifier: Modifier = Modifier
+    onBack: () -> Unit
 ) {
     val favorites by viewModel.userFavorites.collectAsState()
 
-    LazyColumn(
-        modifier = modifier
-            .fillMaxSize()
-            .padding(16.dp)
-            .testTag("favorites_screen_content"),
-        verticalArrangement = Arrangement.spacedBy(12.dp)
-    ) {
-        item {
-            Text(
-                text = "المفضلة والمحفوظات ⭐ (${favorites.size})",
-                style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold)
+    Scaffold(
+        topBar = {
+            TopAppBar(
+                title = { Text("المفضلة") },
+                navigationIcon = {
+                    IconButton(onClick = onBack) {
+                        Icon(Icons.Default.ArrowForward, contentDescription = "رجوع")
+                    }
+                }
             )
         }
-
+    ) { padding ->
         if (favorites.isEmpty()) {
-            item {
-                Box(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(top = 40.dp),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Text(
-                        text = "لم تقم بحفظ أي دروس أو قوانين في المفضلة بعد.",
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                }
-            }
-        }
-
-        items(favorites) { fav ->
-            Card(
-                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-                shape = RoundedCornerShape(14.dp),
-                elevation = CardDefaults.cardElevation(defaultElevation = 1.dp),
-                modifier = Modifier.fillMaxWidth()
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(padding),
+                contentAlignment = Alignment.Center
             ) {
-                Row(
-                    modifier = Modifier
-                        .padding(14.dp)
-                        .fillMaxWidth(),
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.SpaceBetween
-                ) {
-                    Column(modifier = Modifier.weight(1f)) {
-                        Text(
-                            text = fav.title,
-                            style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Bold)
-                        )
-                        Text(
-                            text = fav.subtitle,
-                            style = MaterialTheme.typography.bodySmall.copy(color = MaterialTheme.colorScheme.onSurfaceVariant)
-                        )
-                    }
-
-                    IconButton(
-                        onClick = {
-                            viewModel.toggleFavorite(fav.itemType, fav.itemId, fav.title, fav.subtitle, false)
-                        }
+                Text("لا توجد عناصر محفوظة في المفضلة بعد")
+            }
+        } else {
+            LazyColumn(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(padding)
+                    .padding(16.dp),
+                verticalArrangement = Arrangement.spacedBy(10.dp)
+            ) {
+                items(favorites) { fav ->
+                    Card(
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = RoundedCornerShape(12.dp)
                     ) {
-                        Icon(imageVector = Icons.Default.Delete, contentDescription = "حذف", tint = ErrorRed)
+                        Column(modifier = Modifier.padding(14.dp)) {
+                            Text(fav.title, fontWeight = FontWeight.Bold)
+                            Text(fav.subtitle, style = MaterialTheme.typography.bodySmall, color = Color.Gray)
+                        }
                     }
                 }
             }
@@ -448,186 +286,102 @@ fun FavoritesScreen(
     }
 }
 
-// -------------------------------------------------------------
-// PROGRESS SCREEN
-// -------------------------------------------------------------
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ProgressScreen(
     viewModel: MainViewModel,
-    modifier: Modifier = Modifier
+    onBack: () -> Unit
 ) {
     val completedIds by viewModel.completedLessonIds.collectAsState()
-    val totalLessons by viewModel.database.curriculumDao().getLessonCount().collectAsState(initial = 10)
-    val subjects by viewModel.allSubjects.collectAsState()
+    val results by viewModel.userExamResults.collectAsState()
 
-    val progressPercent = if (totalLessons > 0) {
-        ((completedIds.size * 100) / totalLessons).coerceIn(0, 100)
-    } else 0
-
-    LazyColumn(
-        modifier = modifier
-            .fillMaxSize()
-            .padding(16.dp)
-            .testTag("progress_screen_content"),
-        verticalArrangement = Arrangement.spacedBy(16.dp)
-    ) {
-        // Overall Progress Hero
-        item {
-            Card(
-                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer),
-                shape = RoundedCornerShape(18.dp),
-                modifier = Modifier.fillMaxWidth()
-            ) {
-                Column(
-                    modifier = Modifier
-                        .padding(20.dp)
-                        .fillMaxWidth(),
-                    horizontalAlignment = Alignment.CenterHorizontally,
-                    verticalArrangement = Arrangement.spacedBy(10.dp)
-                ) {
-                    Text(
-                        text = "نسبة إنجازك العام في المنهج 📊",
-                        style = MaterialTheme.typography.titleMedium.copy(
-                            fontWeight = FontWeight.Bold,
-                            color = MaterialTheme.colorScheme.onPrimaryContainer
-                        )
-                    )
-
-                    Text(
-                        text = "$progressPercent%",
-                        style = MaterialTheme.typography.displayMedium.copy(
-                            fontWeight = FontWeight.ExtraBold,
-                            color = MaterialTheme.colorScheme.primary
-                        )
-                    )
-
-                    LinearProgressIndicator(
-                        progress = { progressPercent / 100f },
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .height(10.dp)
-                            .clip(CircleShape),
-                        color = MaterialTheme.colorScheme.primary
-                    )
-
-                    Text(
-                        text = "أكملت ${completedIds.size} من إجمالي $totalLessons درس",
-                        style = MaterialTheme.typography.bodySmall.copy(
-                            color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.8f)
-                        )
-                    )
+    Scaffold(
+        topBar = {
+            TopAppBar(
+                title = { Text("مستوى التقدم الدراسي") },
+                navigationIcon = {
+                    IconButton(onClick = onBack) {
+                        Icon(Icons.Default.ArrowForward, contentDescription = "رجوع")
+                    }
                 }
-            }
-        }
-
-        item {
-            Text(
-                text = "تقدم المواد الدراسية:",
-                style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold)
             )
         }
-
-        items(subjects) { subj ->
-            Card(
-                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-                shape = RoundedCornerShape(14.dp),
-                elevation = CardDefaults.cardElevation(defaultElevation = 1.dp),
-                modifier = Modifier.fillMaxWidth()
-            ) {
-                Row(
-                    modifier = Modifier
-                        .padding(14.dp)
-                        .fillMaxWidth(),
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(12.dp)
+    ) { padding ->
+        LazyColumn(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(padding)
+                .padding(16.dp),
+            verticalArrangement = Arrangement.spacedBy(14.dp)
+        ) {
+            item {
+                Card(
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(14.dp),
+                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer)
                 ) {
-                    Box(
-                        modifier = Modifier
-                            .size(38.dp)
-                            .clip(CircleShape)
-                            .background(MaterialTheme.colorScheme.primaryContainer),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Text(text = "📚", fontSize = 18.sp)
+                    Column(modifier = Modifier.padding(16.dp)) {
+                        Text("إجمالي الدروس المنجزة: ${completedIds.size}", fontWeight = FontWeight.Bold)
+                        Text("الاختبارات المجتازة: ${results.count { it.isPassed }}", style = MaterialTheme.typography.bodyMedium)
                     }
-
-                    Column(modifier = Modifier.weight(1f)) {
-                        Text(text = subj.name, fontWeight = FontWeight.Bold)
-                        Text(
-                            text = subj.description,
-                            style = MaterialTheme.typography.bodySmall.copy(color = MaterialTheme.colorScheme.onSurfaceVariant),
-                            maxLines = 1
-                        )
-                    }
-
-                    Icon(
-                        imageVector = Icons.Default.CheckCircleOutline,
-                        contentDescription = null,
-                        tint = SuccessGreen
-                    )
                 }
             }
         }
     }
 }
 
-// -------------------------------------------------------------
-// SEARCH SCREEN
-// -------------------------------------------------------------
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun SearchScreen(
     viewModel: MainViewModel,
-    modifier: Modifier = Modifier
+    onBack: () -> Unit
 ) {
     val query by viewModel.searchQuery.collectAsState()
     val results by viewModel.searchResults.collectAsState()
 
-    Column(
-        modifier = modifier
-            .fillMaxSize()
-            .padding(16.dp)
-            .testTag("search_screen_content"),
-        verticalArrangement = Arrangement.spacedBy(14.dp)
-    ) {
-        OutlinedTextField(
-            value = query,
-            onValueChange = { viewModel.searchQuery.value = it },
-            placeholder = { Text("ابحث عن أي درس أو قانون مثل: قانون هس، الدوال...") },
-            leadingIcon = { Icon(imageVector = Icons.Default.Search, contentDescription = null) },
-            shape = RoundedCornerShape(14.dp),
+    Scaffold(
+        topBar = {
+            TopAppBar(
+                title = { Text("البحث في الدروس والمناهج") },
+                navigationIcon = {
+                    IconButton(onClick = onBack) {
+                        Icon(Icons.Default.ArrowForward, contentDescription = "رجوع")
+                    }
+                }
+            )
+        }
+    ) { padding ->
+        Column(
             modifier = Modifier
-                .fillMaxWidth()
-                .testTag("search_input_field")
-        )
-
-        Text(
-            text = "نتائج البحث (${results.size}):",
-            style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold)
-        )
-
-        LazyColumn(
-            verticalArrangement = Arrangement.spacedBy(10.dp),
-            modifier = Modifier.fillMaxSize()
+                .fillMaxSize()
+                .padding(padding)
+                .padding(16.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
-            items(results) { lesson ->
-                Card(
-                    onClick = { viewModel.selectLesson(lesson) },
-                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-                    shape = RoundedCornerShape(14.dp),
-                    elevation = CardDefaults.cardElevation(defaultElevation = 1.dp),
-                    modifier = Modifier.fillMaxWidth()
-                ) {
-                    Column(
+            OutlinedTextField(
+                value = query,
+                onValueChange = { viewModel.searchQuery.value = it },
+                modifier = Modifier.fillMaxWidth(),
+                placeholder = { Text("ابحث عن أي درس أو مفهوم...") },
+                leadingIcon = { Icon(Icons.Default.Search, contentDescription = null) },
+                shape = RoundedCornerShape(12.dp)
+            )
+
+            LazyColumn(
+                modifier = Modifier.fillMaxSize(),
+                verticalArrangement = Arrangement.spacedBy(10.dp)
+            ) {
+                items(results) { lesson ->
+                    Card(
                         modifier = Modifier
-                            .padding(14.dp)
-                            .fillMaxWidth(),
-                        verticalArrangement = Arrangement.spacedBy(4.dp)
+                            .fillMaxWidth()
+                            .clickable { viewModel.selectLesson(lesson) },
+                        shape = RoundedCornerShape(12.dp)
                     ) {
-                        Text(text = lesson.title, fontWeight = FontWeight.Bold, fontSize = 15.sp)
-                        Text(
-                            text = lesson.coreIdea,
-                            style = MaterialTheme.typography.bodySmall.copy(color = MaterialTheme.colorScheme.onSurfaceVariant)
-                        )
+                        Column(modifier = Modifier.padding(14.dp)) {
+                            Text(lesson.title, fontWeight = FontWeight.Bold)
+                            Text(lesson.coreIdea, style = MaterialTheme.typography.bodySmall, color = Color.Gray, maxLines = 2)
+                        }
                     }
                 }
             }

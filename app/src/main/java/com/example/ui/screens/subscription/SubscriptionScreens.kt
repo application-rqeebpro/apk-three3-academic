@@ -1,11 +1,9 @@
 package com.example.ui.screens.subscription
 
-import androidx.compose.foundation.background
-import androidx.compose.foundation.border
+import android.widget.Toast
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
@@ -13,835 +11,478 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.example.data.local.entities.SubscriptionPlanEntity
 import com.example.ui.MainViewModel
 import com.example.ui.Screen
-import com.example.ui.components.copyToClipboard
-import com.example.ui.theme.*
-import java.text.SimpleDateFormat
-import java.util.*
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun SubscriptionScreen(
     viewModel: MainViewModel,
-    modifier: Modifier = Modifier
+    onNavigate: (Screen) -> Unit,
+    onBack: () -> Unit
 ) {
-    val context = LocalContext.current
-    val currentUser by viewModel.currentUser.collectAsState()
     val isSubscribed by viewModel.isSubscribed.collectAsState()
     val activeSub by viewModel.activeSubscription.collectAsState()
-    val plans by viewModel.repository.getAllActivePlans().collectAsState(initial = emptyList())
 
-    val paymentWalletNumber = "782916997"
-    val dateFormat = SimpleDateFormat("yyyy/MM/dd", Locale.getDefault())
-
-    val daysRemaining = remember(activeSub) {
-        activeSub?.let {
-            val diff = it.endDate - System.currentTimeMillis()
-            (diff / (1000 * 60 * 60 * 24)).coerceAtLeast(0)
-        } ?: 0L
-    }
-
-    LazyColumn(
-        modifier = modifier
-            .fillMaxSize()
-            .padding(16.dp)
-            .testTag("subscription_screen_content"),
-        verticalArrangement = Arrangement.spacedBy(16.dp)
-    ) {
-        // Status Card
-        item {
-            Card(
-                colors = CardDefaults.cardColors(
-                    containerColor = if (isSubscribed) CardNavy else CardGold
-                ),
-                shape = RoundedCornerShape(18.dp),
-                modifier = Modifier.fillMaxWidth()
-            ) {
-                Column(
-                    modifier = Modifier
-                        .padding(18.dp)
-                        .fillMaxWidth(),
-                    verticalArrangement = Arrangement.spacedBy(8.dp)
-                ) {
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(10.dp)
-                    ) {
-                        Box(
-                            modifier = Modifier
-                                .size(44.dp)
-                                .clip(CircleShape)
-                                .background(if (isSubscribed) NavyPrimary else AmberSecondary),
-                            contentAlignment = Alignment.Center
-                        ) {
-                            Icon(
-                                imageVector = if (isSubscribed) Icons.Default.Verified else Icons.Default.Lock,
-                                contentDescription = null,
-                                tint = Color.White
-                            )
-                        }
-
-                        Column {
-                            Text(
-                                text = if (isSubscribed) "اشتراكك مفعل (${activeSub?.planName})" else "الحساب المجاني (ميزات محدودة)",
-                                style = MaterialTheme.typography.titleMedium.copy(
-                                    fontWeight = FontWeight.Bold,
-                                    color = if (isSubscribed) NavyPrimary else AmberSecondary
-                                )
-                            )
-                            if (isSubscribed && activeSub != null) {
-                                Text(
-                                    text = "تاريخ الانتهاء: ${dateFormat.format(Date(activeSub!!.endDate))} (متبقي $daysRemaining يوم)",
-                                    style = MaterialTheme.typography.bodySmall.copy(
-                                        color = TextSecondaryLight,
-                                        fontWeight = FontWeight.SemiBold
-                                    )
-                                )
-                            } else {
-                                Text(
-                                    text = "اشترك للوصول لكافة المواد والشروحات وبنك الأسئلة الكامل",
-                                    style = MaterialTheme.typography.bodySmall.copy(color = TextSecondaryLight)
-                                )
-                            }
-                        }
+    Scaffold(
+        topBar = {
+            TopAppBar(
+                title = { Text("باقات الاشتراك") },
+                navigationIcon = {
+                    IconButton(onClick = onBack) {
+                        Icon(Icons.Default.ArrowForward, contentDescription = "رجوع")
                     }
                 }
-            }
-        }
-
-        // Action: Activate Code Shortcut
-        item {
-            OutlinedButton(
-                onClick = { viewModel.navigateTo(Screen.ActivateCode) },
-                shape = RoundedCornerShape(14.dp),
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(48.dp)
-                    .testTag("open_activate_code_button")
-            ) {
-                Icon(imageVector = Icons.Default.VpnKey, contentDescription = null)
-                Spacer(modifier = Modifier.width(8.dp))
-                Text(text = "لديك كود تفعيل؟ اضغط هنا لتفعيله 🔑", fontWeight = FontWeight.Bold)
-            }
-        }
-
-        // Yemeni Wallets Payment Card
-        item {
-            Card(
-                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-                shape = RoundedCornerShape(16.dp),
-                elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
-                modifier = Modifier.fillMaxWidth()
-            ) {
-                Column(
-                    modifier = Modifier
-                        .padding(16.dp)
-                        .fillMaxWidth(),
-                    verticalArrangement = Arrangement.spacedBy(12.dp)
-                ) {
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(8.dp)
-                    ) {
-                        Text(text = "🇾🇪", fontSize = 20.sp)
-                        Column {
-                            Text(
-                                text = "أرقام حسابات الدفع بالمحافظ الإلكترونية",
-                                style = MaterialTheme.typography.titleMedium.copy(
-                                    fontWeight = FontWeight.Bold,
-                                    color = NavyPrimary
-                                )
-                            )
-                            Text(
-                                text = "حول المبلغ عبر إحدى المحافظ التالية، ثم أرسل الطلب للرقم: 785502919",
-                                style = MaterialTheme.typography.bodySmall.copy(
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                    fontSize = 11.sp
-                                )
-                            )
-                        }
-                    }
-
-                    // 1. OneCash (ون كاش)
-                    WalletAccountRow(
-                        walletName = "محفظة ون كاش (OneCash)",
-                        accountNumber = "192737631",
-                        badgeColor = Color(0xFFEFF6FF),
-                        textColor = Color(0xFF1D4ED8),
-                        onCopy = { copyToClipboard(context, "192737631", "حساب ون كاش") }
-                    )
-
-                    // 2. Jeeb (جيب)
-                    WalletAccountRow(
-                        walletName = "محفظة جيب (Jeeb)",
-                        accountNumber = "913554",
-                        badgeColor = Color(0xFFFEF3C7),
-                        textColor = Color(0xFFB45309),
-                        onCopy = { copyToClipboard(context, "913554", "حساب جيب") }
-                    )
-
-                    // 3. Jawali (جوالي)
-                    WalletAccountRow(
-                        walletName = "محفظة جوالي (Jawali)",
-                        accountNumber = "782916997",
-                        badgeColor = Color(0xFFECFDF5),
-                        textColor = Color(0xFF047857),
-                        onCopy = { copyToClipboard(context, "782916997", "حساب جوالي") }
-                    )
-
-                    // Recipient phone badge & Direct WhatsApp button
-                    Surface(
-                        shape = RoundedCornerShape(10.dp),
-                        color = Color(0xFFF1F5F9),
-                        modifier = Modifier.fillMaxWidth()
-                    ) {
-                        Column(
-                            modifier = Modifier
-                                .padding(12.dp)
-                                .fillMaxWidth(),
-                            verticalArrangement = Arrangement.spacedBy(8.dp)
-                        ) {
-                            Row(
-                                modifier = Modifier.fillMaxWidth(),
-                                verticalAlignment = Alignment.CenterVertically,
-                                horizontalArrangement = Arrangement.SpaceBetween
-                            ) {
-                                Text(
-                                    text = "رقم استقبال وتأكيد طلبات الاشتراك:",
-                                    style = MaterialTheme.typography.bodySmall.copy(fontWeight = FontWeight.SemiBold)
-                                )
-                                Text(
-                                    text = "785502919 📲",
-                                    style = MaterialTheme.typography.titleSmall.copy(
-                                        fontWeight = FontWeight.ExtraBold,
-                                        color = NavyPrimary
-                                    )
-                                )
-                            }
-
-                            Button(
-                                onClick = {
-                                    val generalMsg = "مرحباً إدارة تطبيق رقيب للتعليم الثانوي، أود الاستفسار والاشتراك عبر الرقم 785502919."
-                                    sendViaWhatsApp(context, "785502919", generalMsg)
-                                },
-                                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF25D366)),
-                                shape = RoundedCornerShape(8.dp),
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .height(38.dp)
-                            ) {
-                                Text(
-                                    text = "📲 إرسال طلب اشتراك واتساب للرقم 785502919",
-                                    color = Color.White,
-                                    fontWeight = FontWeight.Bold,
-                                    fontSize = 12.sp
-                                )
-                            }
-                        }
-                    }
-                }
-            }
-        }
-
-        // Plans Section
-        item {
-            Text(
-                text = "خطط الاشتراك المدفوعة:",
-                style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold)
             )
         }
-
-        val defaultPlans = if (plans.isNotEmpty()) plans else listOf(
-            SubscriptionPlanEntity(name = "اشتراك 3 أشهر", durationMonths = 3, priceYmr = 12000, description = "تغطية الفصل الدراسي الأول أو التحضير المكثف."),
-            SubscriptionPlanEntity(name = "اشتراك 6 أشهر", durationMonths = 6, priceYmr = 24000, description = "الخيار الأنسب للطلاب طوال فترة الامتحانات.", isPopular = true),
-            SubscriptionPlanEntity(name = "اشتراك سنوي (12 شهر)", durationMonths = 12, priceYmr = 30000, description = "تغطية شاملة لجميع المواد حتى نهاية العام الوزاري.")
-        )
-
-        items(defaultPlans) { plan ->
-            Card(
-                colors = CardDefaults.cardColors(
-                    containerColor = if (plan.isPopular) CardGold else MaterialTheme.colorScheme.surface
-                ),
-                shape = RoundedCornerShape(16.dp),
-                elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
-                border = if (plan.isPopular) androidx.compose.foundation.BorderStroke(1.5.dp, AmberSecondary) else null,
-                modifier = Modifier.fillMaxWidth()
-            ) {
-                Column(
-                    modifier = Modifier
-                        .padding(16.dp)
-                        .fillMaxWidth(),
-                    verticalArrangement = Arrangement.spacedBy(8.dp)
+    ) { padding ->
+        LazyColumn(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(padding)
+                .padding(horizontal = 16.dp),
+            verticalArrangement = Arrangement.spacedBy(16.dp),
+            contentPadding = PaddingValues(top = 8.dp, bottom = 32.dp)
+        ) {
+            item {
+                Card(
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(16.dp),
+                    colors = CardDefaults.cardColors(
+                        containerColor = if (isSubscribed) Color(0xFFF0FDF4) else MaterialTheme.colorScheme.primaryContainer
+                    )
                 ) {
+                    Column(
+                        modifier = Modifier.padding(20.dp),
+                        verticalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        Text(
+                            text = if (isSubscribed) "أنت مشترك حالياً في باقة ${activeSub?.planName ?: "التميز"}" else "اشترك في باقات أكاديمية رقيب",
+                            style = MaterialTheme.typography.titleMedium,
+                            fontWeight = FontWeight.Bold
+                        )
+                        Text(
+                            text = "احصل على وصول كامل لكافة نماذج الامتحانات، الملازم الدراسية، الشرح الذكي، وحل المسائل غير المحدود.",
+                            style = MaterialTheme.typography.bodySmall
+                        )
+                    }
+                }
+            }
+
+            item {
+                Button(
+                    onClick = { onNavigate(Screen.ActivateCode) },
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(12.dp)
+                ) {
+                    Icon(Icons.Default.VpnKey, contentDescription = null)
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text("لديك كود تفعيل؟ أدخله هنا")
+                }
+            }
+
+            // 4 Subscription Tiers
+            item {
+                Text(
+                    text = "الباقات المتاحة:",
+                    fontWeight = FontWeight.Bold,
+                    style = MaterialTheme.typography.titleMedium
+                )
+            }
+
+            // Plan 1: 1 Month
+            item {
+                SubscriptionTierCard(
+                    title = "باقة شهر واحد",
+                    duration = "30 يوماً",
+                    price = "5,000 ريال يمني",
+                    description = "وصول كامل لكافة المواد والدروس والملازم والآلة الحاسبة وبنك الأسئلة.",
+                    badge = null,
+                    onSubscribe = { onNavigate(Screen.PaymentForm) }
+                )
+            }
+
+            // Plan 2: 3 Months
+            item {
+                SubscriptionTierCard(
+                    title = "باقة ثلاثة أشهر",
+                    duration = "90 يوماً",
+                    price = "12,000 ريال يمني",
+                    description = "وفر 3,000 ريال مع وصول كامل لكافة المواد وشروحات الذكاء الاصطناعي والملازم.",
+                    badge = "الأكثر طلباً ⭐",
+                    isHighlight = true,
+                    onSubscribe = { onNavigate(Screen.PaymentForm) }
+                )
+            }
+
+            // Plan 3: 6 Months
+            item {
+                SubscriptionTierCard(
+                    title = "باقة ستة أشهر",
+                    duration = "180 يوماً",
+                    price = "24,000 ريال يمني",
+                    description = "تغطية الفصل الدراسي بالكامل مع النماذج الوزارية المؤتمتة والشروحات التفصيلية.",
+                    badge = "فصل دراسي كامل",
+                    onSubscribe = { onNavigate(Screen.PaymentForm) }
+                )
+            }
+
+            // Plan 4: 8 Months
+            item {
+                SubscriptionTierCard(
+                    title = "باقة ثمانية أشهر",
+                    duration = "240 يوماً",
+                    price = "30,000 ريال يمني",
+                    description = "العام الدراسي بالكامل حتى الاختبارات الوزارية النهائية + الملازم والملخصات الشاملة.",
+                    badge = "الأوفر حتى الوزاري 🏆",
+                    onSubscribe = { onNavigate(Screen.PaymentForm) }
+                )
+            }
+
+            // WhatsApp Subscription Request
+            item {
+                val context = LocalContext.current
+                val user = viewModel.currentUser.collectAsState().value
+                Card(
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(16.dp),
+                    colors = CardDefaults.cardColors(containerColor = Color(0xFFF0FDF4)),
+                    border = BorderStroke(1.5.dp, Color(0xFF22C55E))
+                ) {
+                    Column(
+                        modifier = Modifier.padding(16.dp),
+                        verticalArrangement = Arrangement.spacedBy(10.dp)
+                    ) {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(10.dp)
+                        ) {
+                            Icon(Icons.Default.Phone, contentDescription = null, tint = Color(0xFF16A34A))
+                            Column {
+                                Text(
+                                    text = "الاشتراك المباشر عبر واتساب (785502919)",
+                                    fontWeight = FontWeight.Bold,
+                                    color = Color(0xFF14532D)
+                                )
+                                Text(
+                                    text = "تواصل مع الإدارة لسداد الرسوم عبر المحافظ الإلكترونية واستلام كود التفعيل فوراً",
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = Color(0xFF166534)
+                                )
+                            }
+                        }
+
+                        Button(
+                            onClick = {
+                                val message = "السلام عليكم، أرغب بالاشتراك في منصة رقيب للطالب ${user?.fullName ?: "الثانوية العامة"} (رقم: ${user?.phoneOrEmail ?: ""}). يرجى تزويدي برقم الحساب لسداد الرسوم."
+                                try {
+                                    val encoded = java.net.URLEncoder.encode(message, "UTF-8")
+                                    val intent = android.content.Intent(android.content.Intent.ACTION_VIEW).apply {
+                                        data = android.net.Uri.parse("https://api.whatsapp.com/send?phone=967785502919&text=$encoded")
+                                    }
+                                    context.startActivity(intent)
+                                } catch (e: Exception) {
+                                    android.widget.Toast.makeText(context, "رقم التواصل عبر واتساب: 785502919", android.widget.Toast.LENGTH_LONG).show()
+                                }
+                            },
+                            modifier = Modifier.fillMaxWidth(),
+                            colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF25D366)),
+                            shape = RoundedCornerShape(12.dp)
+                        ) {
+                            Text("مراسلة الإدارة عبر واتساب (785502919)", fontWeight = FontWeight.Bold, color = Color.White)
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun PaymentFormScreen(
+    viewModel: MainViewModel,
+    onBack: () -> Unit,
+    onSuccess: () -> Unit
+) {
+    val context = LocalContext.current
+    var selectedWallet by remember { mutableStateOf("محفظة جيب (Jaib)") }
+    var transRef by remember { mutableStateOf("") }
+    val wallets = listOf(
+        "محفظة جيب (Jaib)",
+        "محفظة جوالي (Jawali)",
+        "محفظة ون كاش (One Cash)",
+        "كريمي إكسبرس (Kuraimi)"
+    )
+
+    Scaffold(
+        topBar = {
+            TopAppBar(
+                title = { Text("تأكيد عملية الدفع") },
+                navigationIcon = {
+                    IconButton(onClick = onBack) {
+                        Icon(Icons.Default.ArrowForward, contentDescription = "رجوع")
+                    }
+                }
+            )
+        }
+    ) { padding ->
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(padding)
+                .padding(20.dp),
+            verticalArrangement = Arrangement.spacedBy(16.dp)
+        ) {
+            Card(
+                modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(16.dp),
+                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer)
+            ) {
+                Column(modifier = Modifier.padding(18.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Text("بيانات التحويل المعتمدة للمنصة:", fontWeight = FontWeight.Bold, style = MaterialTheme.typography.titleSmall)
                     Row(
                         modifier = Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.SpaceBetween,
                         verticalAlignment = Alignment.CenterVertically
                     ) {
-                        Text(
-                            text = plan.name,
-                            style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold, fontSize = 16.sp)
-                        )
-                        if (plan.isPopular) {
-                            Surface(shape = RoundedCornerShape(6.dp), color = AmberSecondary) {
-                                Text(
-                                    text = "الأكثر طلباً ⭐",
-                                    color = Color.White,
-                                    fontSize = 11.sp,
-                                    fontWeight = FontWeight.Bold,
-                                    modifier = Modifier.padding(horizontal = 8.dp, vertical = 2.dp)
-                                )
-                            }
+                        Column {
+                            Text("رقم الحساب الموحد:", style = MaterialTheme.typography.labelSmall)
+                            Text("782916997", fontSize = 22.sp, fontWeight = FontWeight.ExtraBold, color = MaterialTheme.colorScheme.primary)
                         }
-                    }
-
-                    Text(
-                        text = "${plan.priceYmr} ريال يمني",
-                        style = MaterialTheme.typography.headlineSmall.copy(
-                            fontWeight = FontWeight.ExtraBold,
-                            color = if (plan.isPopular) Color(0xFF78350F) else NavyPrimary
-                        )
-                    )
-
-                    Text(
-                        text = plan.description,
-                        style = MaterialTheme.typography.bodySmall.copy(color = MaterialTheme.colorScheme.onSurfaceVariant)
-                    )
-
-                    Spacer(modifier = Modifier.height(4.dp))
-
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(8.dp)
-                    ) {
-                        Button(
-                            onClick = { viewModel.navigateTo(Screen.PaymentForm) },
-                            colors = ButtonDefaults.buttonColors(
-                                containerColor = if (plan.isPopular) AmberSecondary else NavyPrimary
-                            ),
-                            shape = RoundedCornerShape(10.dp),
-                            modifier = Modifier
-                                .weight(1f)
-                                .height(44.dp)
-                        ) {
-                            Text(text = "نموذج الحوالة 💳", fontWeight = FontWeight.Bold, fontSize = 12.sp)
-                        }
-
-                        Button(
+                        OutlinedButton(
                             onClick = {
-                                val planMsg = """
-*طلب اشتراك في تطبيق رقيب للتعليم الثانوي* 🇾🇪
-• الخطة المطلوبة: ${plan.name}
-• المبلغ: ${plan.priceYmr} ريال يمني
-أود تأكيد الاشتراك وتحويل الرسوم للرقم 785502919.
-                                """.trimIndent()
-                                sendViaWhatsApp(context, "785502919", planMsg)
+                                val clipboard = context.getSystemService(android.content.Context.CLIPBOARD_SERVICE) as? android.content.ClipboardManager
+                                clipboard?.setPrimaryClip(android.content.ClipData.newPlainText("رقم الحساب", "782916997"))
+                                Toast.makeText(context, "تم نسخ رقم الحساب 782916997 بنجاح", Toast.LENGTH_SHORT).show()
                             },
-                            colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF25D366)),
-                            shape = RoundedCornerShape(10.dp),
-                            modifier = Modifier
-                                .weight(1f)
-                                .height(44.dp)
+                            shape = RoundedCornerShape(8.dp)
                         ) {
-                            Text(text = "طلب بالواتساب 📲", color = Color.White, fontWeight = FontWeight.Bold, fontSize = 12.sp)
+                            Icon(Icons.Default.ContentCopy, contentDescription = null, modifier = Modifier.size(16.dp))
+                            Spacer(modifier = Modifier.width(4.dp))
+                            Text("نسخ الحساب")
                         }
                     }
+                    Text("المستفيد: إدارة أكاديمية رقيب التعليمية", style = MaterialTheme.typography.bodySmall, fontWeight = FontWeight.SemiBold)
+                    Text("المحافظ المعتمدة: محفظة جيب • محفظة جوالي • محفظة ون كاش", style = MaterialTheme.typography.labelSmall, color = Color(0xFF047857))
                 }
             }
-        }
-    }
-}
 
-// -------------------------------------------------------------
-// PAYMENT FORM SCREEN (SUBMIT PROOF)
-// -------------------------------------------------------------
-@Composable
-fun PaymentFormScreen(
-    viewModel: MainViewModel,
-    modifier: Modifier = Modifier
-) {
-    val context = LocalContext.current
-    val currentUser by viewModel.currentUser.collectAsState()
-
-    var studentName by remember { mutableStateOf(currentUser?.fullName ?: "") }
-    var studentPhone by remember { mutableStateOf(currentUser?.phoneOrEmail ?: "") }
-    var selectedPlanName by remember { mutableStateOf("اشتراك 3 أشهر") }
-    var selectedDuration by remember { mutableStateOf(3) }
-    var amountYmr by remember { mutableStateOf(12000) }
-    var walletName by remember { mutableStateOf("جيب") }
-    var transferRefNumber by remember { mutableStateOf("") }
-    var receiptNote by remember { mutableStateOf("") }
-
-    val walletNumber = "782916997"
-
-    LazyColumn(
-        modifier = modifier
-            .fillMaxSize()
-            .padding(16.dp)
-            .testTag("payment_form_content"),
-        verticalArrangement = Arrangement.spacedBy(14.dp)
-    ) {
-        item {
-            Card(
-                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer),
-                shape = RoundedCornerShape(16.dp),
-                modifier = Modifier.fillMaxWidth()
-            ) {
-                Column(
-                    modifier = Modifier.padding(16.dp),
-                    verticalArrangement = Arrangement.spacedBy(6.dp)
-                ) {
-                    Text(
-                        text = "نموذج إرسال إشعار الدفع 📤",
-                        style = MaterialTheme.typography.titleLarge.copy(
-                            fontWeight = FontWeight.Bold,
-                            color = MaterialTheme.colorScheme.onPrimaryContainer
-                        )
-                    )
-                    Text(
-                        text = "حول المبلغ لحساب المحفظة المناسبة ثم أرسل إشعار التحويل للرقم: 785502919",
-                        style = MaterialTheme.typography.bodySmall.copy(
-                            color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.85f)
-                        )
-                    )
-                }
-            }
-        }
-
-        // Plan Choice
-        item {
-            Text(text = "اختر خطة الاشتراك:", style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Bold))
-            val plansList = listOf(
-                Triple("اشتراك 3 أشهر", 3, 12000),
-                Triple("اشتراك 6 أشهر", 6, 24000),
-                Triple("اشتراك سنوي (12 شهر)", 12, 30000)
-            )
-
-            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                plansList.forEach { (name, months, price) ->
-                    val isSelected = selectedPlanName == name
-                    Surface(
-                        onClick = {
-                            selectedPlanName = name
-                            selectedDuration = months
-                            amountYmr = price
-                        },
-                        shape = RoundedCornerShape(10.dp),
-                        color = if (isSelected) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
-                        border = if (isSelected) androidx.compose.foundation.BorderStroke(1.5.dp, MaterialTheme.colorScheme.primary) else null,
-                        modifier = Modifier.fillMaxWidth()
-                    ) {
-                        Row(
-                            modifier = Modifier
-                                .padding(12.dp)
-                                .fillMaxWidth(),
-                            horizontalArrangement = Arrangement.SpaceBetween,
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Text(text = name, fontWeight = FontWeight.Bold)
-                            Text(text = "$price ريال يمني", color = NavyPrimary, fontWeight = FontWeight.ExtraBold)
-                        }
-                    }
-                }
-            }
-        }
-
-        // Wallet Choice with Account numbers
-        item {
-            Text(text = "اختر المحفظة المحول منها:", style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Bold))
-            val walletAccounts = listOf(
-                Triple("ون كاش", "192737631", "محفظة ون كاش"),
-                Triple("جيب", "913554", "محفظة جيب"),
-                Triple("جوالي", "782916997", "محفظة جوالي")
-            )
-
-            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                walletAccounts.forEach { (wName, accNum, fullName) ->
-                    val isSelected = walletName == wName
-                    Surface(
-                        onClick = { walletName = wName },
-                        shape = RoundedCornerShape(12.dp),
-                        color = if (isSelected) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
-                        border = if (isSelected) androidx.compose.foundation.BorderStroke(1.5.dp, MaterialTheme.colorScheme.primary) else null,
-                        modifier = Modifier.fillMaxWidth()
-                    ) {
-                        Row(
-                            modifier = Modifier
-                                .padding(12.dp)
-                                .fillMaxWidth(),
-                            horizontalArrangement = Arrangement.SpaceBetween,
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Column {
-                                Text(text = fullName, fontWeight = FontWeight.Bold, fontSize = 14.sp)
-                                Text(
-                                    text = "رقم الحساب: $accNum",
-                                    fontWeight = FontWeight.ExtraBold,
-                                    color = if (isSelected) NavyPrimary else MaterialTheme.colorScheme.onSurfaceVariant
-                                )
-                            }
-                            Button(
-                                onClick = { copyToClipboard(context, accNum, fullName) },
-                                shape = RoundedCornerShape(8.dp),
-                                contentPadding = PaddingValues(horizontal = 8.dp, vertical = 2.dp),
-                                modifier = Modifier.height(30.dp)
-                            ) {
-                                Text(text = "نسخ الرقم", fontSize = 11.sp)
-                            }
-                        }
-                    }
-                }
-            }
-        }
-
-        // Fields
-        item {
-            OutlinedTextField(
-                value = studentName,
-                onValueChange = { studentName = it },
-                label = { Text("اسم الطالب الكامل *") },
-                modifier = Modifier.fillMaxWidth()
-            )
-        }
-
-        item {
-            OutlinedTextField(
-                value = studentPhone,
-                onValueChange = { studentPhone = it },
-                label = { Text("رقم هاتف الطالب *") },
-                modifier = Modifier.fillMaxWidth()
-            )
-        }
-
-        item {
-            OutlinedTextField(
-                value = transferRefNumber,
-                onValueChange = { transferRefNumber = it },
-                label = { Text("رقم عملية التحويل (رقم الحوالة) *") },
-                placeholder = { Text("أدخل رقم السند أو الإشعار") },
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .testTag("transfer_ref_input")
-            )
-        }
-
-        item {
-            OutlinedTextField(
-                value = receiptNote,
-                onValueChange = { receiptNote = it },
-                label = { Text("ملاحظة إضافية عن التحويل (اختياري)") },
-                modifier = Modifier.fillMaxWidth()
-            )
-        }
-
-        // Target Recipient Phone notice
-        item {
-            Surface(
-                shape = RoundedCornerShape(10.dp),
-                color = CardNavy,
-                modifier = Modifier.fillMaxWidth()
-            ) {
+            Text("اختر المحفظة المستخدمة للتحويل:", fontWeight = FontWeight.Bold)
+            wallets.forEach { w ->
                 Row(
-                    modifier = Modifier
-                        .padding(12.dp)
-                        .fillMaxWidth(),
                     verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    modifier = Modifier.fillMaxWidth()
                 ) {
-                    Icon(imageVector = Icons.Default.Info, contentDescription = null, tint = NavyPrimary)
-                    Text(
-                        text = "عند الإرسال سيتم توجيه طلب الاشتراك إلى الرقم 785502919 عبر واتساب ورسائل المنظومة للمراجعة والتفعيل.",
-                        style = MaterialTheme.typography.bodySmall.copy(color = NavyPrimary, fontWeight = FontWeight.SemiBold)
+                    RadioButton(
+                        selected = selectedWallet == w,
+                        onClick = { selectedWallet = w }
                     )
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text(w, fontWeight = if (selectedWallet == w) FontWeight.Bold else FontWeight.Normal)
                 }
             }
-        }
 
-        // Submit Button
-        item {
-            var showSendToNumberDialog by remember { mutableStateOf(false) }
+            OutlinedTextField(
+                value = transRef,
+                onValueChange = { transRef = it },
+                label = { Text("رقم الحوالة أو إشعار الإيداع") },
+                singleLine = true,
+                modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(12.dp)
+            )
+
+            Spacer(modifier = Modifier.weight(1f))
 
             Button(
                 onClick = {
-                    viewModel.submitPayment(
-                        planName = selectedPlanName,
-                        durationMonths = selectedDuration,
-                        amountYmr = amountYmr,
-                        walletName = walletName,
-                        transRef = transferRefNumber,
-                        receiptUri = receiptNote.takeIf { it.isNotBlank() },
-                        onSuccess = {
-                            val msg = """
-*طلب اشتراك جديد في تطبيق رقيب للتعليم الثانوي* 🇾🇪
-• اسم الطالب: $studentName
-• رقم الهاتف: $studentPhone
-• الخطة المطلوبة: $selectedPlanName
-• المبلغ المحول: $amountYmr ريال يمني
-• المحفظة: $walletName
-• رقم عملية التحويل: $transferRefNumber
-${if (receiptNote.isNotBlank()) "• ملاحظة: $receiptNote\n" else ""}يرجى تفعيل الاشتراك وشكراً لكم.
-                            """.trimIndent()
-                            sendViaWhatsApp(context, "785502919", msg)
-                            showSendToNumberDialog = true
-                        }
-                    )
+                    if (transRef.isBlank()) {
+                        Toast.makeText(context, "يرجى إدخال رقم الحوالة", Toast.LENGTH_SHORT).show()
+                    } else {
+                        viewModel.submitPayment(
+                            planName = "باقة الفصل الدراسي",
+                            durationMonths = 5,
+                            amountYmr = "10000",
+                            walletName = selectedWallet,
+                            transRef = transRef,
+                            receiptUri = "",
+                            onSuccess = onSuccess
+                        )
+                    }
                 },
-                colors = ButtonDefaults.buttonColors(containerColor = SuccessGreen),
-                shape = RoundedCornerShape(12.dp),
                 modifier = Modifier
                     .fillMaxWidth()
-                    .height(52.dp)
-                    .testTag("submit_payment_button")
+                    .height(50.dp),
+                shape = RoundedCornerShape(12.dp)
             ) {
-                Icon(imageVector = Icons.Default.Send, contentDescription = null)
-                Spacer(modifier = Modifier.width(8.dp))
-                Text(text = "إرسال طلب الاشتراك للرقم 785502919 🚀", fontWeight = FontWeight.Bold, fontSize = 14.sp)
-            }
-
-            if (showSendToNumberDialog) {
-                val formattedMessage = """
-*طلب اشتراك جديد في تطبيق رقيب للتعليم الثانوي* 🇾🇪
-• اسم الطالب: $studentName
-• رقم الهاتف: $studentPhone
-• الخطة المطلوبة: $selectedPlanName
-• المبلغ المحول: $amountYmr ريال يمني
-• المحفظة: $walletName
-• رقم عملية التحويل: $transferRefNumber
-${if (receiptNote.isNotBlank()) "• ملاحظة: $receiptNote\n" else ""}
-يرجى تفعيل الاشتراك وشكراً لكم.
-                """.trimIndent()
-
-                AlertDialog(
-                    onDismissRequest = {
-                        showSendToNumberDialog = false
-                        viewModel.navigateTo(Screen.Subscription)
-                    },
-                    title = {
-                        Text("تم تسجيل طلبك بنجاح! 🎉", fontWeight = FontWeight.Bold)
-                    },
-                    text = {
-                        Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                            Text("أرسل تفاصيل طلبك الآن مباشرة إلى الرقم 785502919 لتأكيد واستلام تفعيل اشتراكك بأسرع وقت:")
-
-                            Button(
-                                onClick = {
-                                    sendViaWhatsApp(context, "785502919", formattedMessage)
-                                },
-                                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF25D366)),
-                                shape = RoundedCornerShape(10.dp),
-                                modifier = Modifier.fillMaxWidth()
-                            ) {
-                                Text("📲 إرسال عبر واتساب إلى 785502919", color = Color.White, fontWeight = FontWeight.Bold)
-                            }
-
-                            OutlinedButton(
-                                onClick = {
-                                    sendViaSms(context, "785502919", formattedMessage)
-                                },
-                                shape = RoundedCornerShape(10.dp),
-                                modifier = Modifier.fillMaxWidth()
-                            ) {
-                                Text("💬 إرسال رسالة نصية SMS إلى 785502919")
-                            }
-
-                            TextButton(
-                                onClick = {
-                                    copyToClipboard(context, formattedMessage, "طلب الاشتراك")
-                                },
-                                modifier = Modifier.fillMaxWidth()
-                            ) {
-                                Text("📋 نسخ نص الرسالة")
-                            }
-                        }
-                    },
-                    confirmButton = {
-                        Button(
-                            onClick = {
-                                showSendToNumberDialog = false
-                                viewModel.navigateTo(Screen.Subscription)
-                            }
-                        ) {
-                            Text("تم ومتابعة")
-                        }
-                    }
-                )
+                Text("إرسال طلب التفعيل للإدارة")
             }
         }
     }
 }
 
-// -------------------------------------------------------------
-// ACTIVATE CODE SCREEN
-// -------------------------------------------------------------
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ActivateCodeScreen(
     viewModel: MainViewModel,
-    modifier: Modifier = Modifier
+    onBack: () -> Unit,
+    onSuccess: () -> Unit
 ) {
-    var enteredCode by remember { mutableStateOf("") }
+    var codeInput by remember { mutableStateOf("") }
 
-    Column(
-        modifier = modifier
-            .fillMaxSize()
-            .padding(16.dp)
-            .testTag("activate_code_screen"),
-        verticalArrangement = Arrangement.spacedBy(16.dp)
-    ) {
-        Card(
-            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer),
-            shape = RoundedCornerShape(16.dp),
-            modifier = Modifier.fillMaxWidth()
-        ) {
-            Column(
-                modifier = Modifier.padding(18.dp),
-                verticalArrangement = Arrangement.spacedBy(6.dp)
-            ) {
-                Text(
-                    text = "تفعيل كود الاشتراك 🔑",
-                    style = MaterialTheme.typography.titleLarge.copy(
-                        fontWeight = FontWeight.Bold,
-                        color = MaterialTheme.colorScheme.onPrimaryContainer
-                    )
-                )
-                Text(
-                    text = "إذا حصلت على كود تفعيل من الإدارة، أدخله هنا لتفعيل اشتراكك فوراً بدون انتظار.",
-                    style = MaterialTheme.typography.bodySmall.copy(
-                        color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.85f)
-                    )
-                )
-            }
-        }
-
-        Card(
-            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-            shape = RoundedCornerShape(16.dp),
-            elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
-            modifier = Modifier.fillMaxWidth()
-        ) {
-            Column(
-                modifier = Modifier.padding(16.dp),
-                verticalArrangement = Arrangement.spacedBy(14.dp)
-            ) {
-                Text(
-                    text = "أدخل كود الاشتراك:",
-                    style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold)
-                )
-
-                OutlinedTextField(
-                    value = enteredCode,
-                    onValueChange = { enteredCode = it.uppercase() },
-                    placeholder = { Text("مثال: YEM-8K4P-29MX") },
-                    shape = RoundedCornerShape(12.dp),
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .testTag("code_input_field")
-                )
-
-                Button(
-                    onClick = {
-                        viewModel.activateCode(enteredCode) {
-                            viewModel.navigateTo(Screen.Subscription)
-                        }
-                    },
-                    enabled = enteredCode.isNotBlank(),
-                    colors = ButtonDefaults.buttonColors(containerColor = NavyPrimary),
-                    shape = RoundedCornerShape(12.dp),
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(48.dp)
-                        .testTag("submit_code_button")
-                ) {
-                    Icon(imageVector = Icons.Default.Check, contentDescription = null)
-                    Spacer(modifier = Modifier.width(8.dp))
-                    Text(text = "تفعيل الكود الآن 🚀", fontWeight = FontWeight.Bold)
+    Scaffold(
+        topBar = {
+            TopAppBar(
+                title = { Text("تفعيل كود الاشتراك") },
+                navigationIcon = {
+                    IconButton(onClick = onBack) {
+                        Icon(Icons.Default.ArrowForward, contentDescription = "رجوع")
+                    }
                 }
+            )
+        }
+    ) { padding ->
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(padding)
+                .padding(24.dp),
+            verticalArrangement = Arrangement.Center,
+            horizontalAlignment = Alignment.CenterHorizontally
+        ) {
+            Icon(Icons.Default.VpnKey, contentDescription = null, modifier = Modifier.size(64.dp), tint = MaterialTheme.colorScheme.primary)
+            Spacer(modifier = Modifier.height(16.dp))
+            Text("أدخل كود الاشتراك الممنوح لك من الإدارة", fontWeight = FontWeight.Bold, style = MaterialTheme.typography.titleMedium)
+            Spacer(modifier = Modifier.height(20.dp))
+
+            OutlinedTextField(
+                value = codeInput,
+                onValueChange = { codeInput = it },
+                label = { Text("كود التفعيل (مثال: RAQ-8492)") },
+                singleLine = true,
+                modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(12.dp)
+            )
+
+            Spacer(modifier = Modifier.height(24.dp))
+
+            Button(
+                onClick = {
+                    viewModel.activateCode(codeInput, onSuccess)
+                },
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(50.dp),
+                shape = RoundedCornerShape(12.dp)
+            ) {
+                Text("تفعيل الاشتراك الآن")
             }
         }
     }
 }
 
 @Composable
-fun WalletAccountRow(
-    walletName: String,
-    accountNumber: String,
-    badgeColor: Color,
-    textColor: Color,
-    onCopy: () -> Unit,
-    modifier: Modifier = Modifier
+fun SubscriptionGateScreen(
+    onNavigateToSubscription: () -> Unit,
+    onBack: () -> Unit
 ) {
-    Surface(
-        shape = RoundedCornerShape(12.dp),
-        color = badgeColor,
-        modifier = modifier.fillMaxWidth()
-    ) {
-        Row(
+    Scaffold { padding ->
+        Column(
             modifier = Modifier
-                .padding(horizontal = 12.dp, vertical = 10.dp)
-                .fillMaxWidth(),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.SpaceBetween
+                .fillMaxSize()
+                .padding(padding)
+                .padding(24.dp),
+            verticalArrangement = Arrangement.Center,
+            horizontalAlignment = Alignment.CenterHorizontally
         ) {
-            Column {
-                Text(
-                    text = walletName,
-                    style = MaterialTheme.typography.labelMedium.copy(
-                        fontWeight = FontWeight.Bold,
-                        color = textColor
-                    )
-                )
-                Text(
-                    text = accountNumber,
-                    style = MaterialTheme.typography.titleMedium.copy(
-                        fontWeight = FontWeight.ExtraBold,
-                        color = textColor,
-                        fontSize = 18.sp
-                    )
-                )
+            Icon(Icons.Default.Lock, contentDescription = null, modifier = Modifier.size(72.dp), tint = MaterialTheme.colorScheme.primary)
+            Spacer(modifier = Modifier.height(16.dp))
+            Text("هذا المحتوى متاح للمشتركين فقط", fontWeight = FontWeight.Bold, style = MaterialTheme.typography.headlineSmall)
+            Spacer(modifier = Modifier.height(8.dp))
+            Text("قم بترقية حسابك للوصول غير المحدود للملازم والاختبارات ومساعد الذكاء الاصطناعي.")
+            Spacer(modifier = Modifier.height(24.dp))
+            Button(onClick = onNavigateToSubscription, modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(12.dp)) {
+                Text("عرض باقات الاشتراك")
             }
-
-            Button(
-                onClick = onCopy,
-                colors = ButtonDefaults.buttonColors(containerColor = textColor),
-                shape = RoundedCornerShape(8.dp),
-                contentPadding = PaddingValues(horizontal = 10.dp, vertical = 4.dp),
-                modifier = Modifier.height(32.dp)
-            ) {
-                Icon(imageVector = Icons.Default.ContentCopy, contentDescription = null, modifier = Modifier.size(14.dp))
-                Spacer(modifier = Modifier.width(4.dp))
-                Text(text = "نسخ الرقم", fontSize = 11.sp, color = Color.White)
+            TextButton(onClick = onBack) {
+                Text("العودة للخلف")
             }
         }
     }
 }
 
-fun sendViaWhatsApp(context: android.content.Context, phone: String, message: String) {
-    try {
-        val cleanPhone = if (phone.startsWith("+") || phone.startsWith("967")) phone else "967$phone"
-        val encodedMsg = java.net.URLEncoder.encode(message, "UTF-8")
-        val uri = android.net.Uri.parse("https://api.whatsapp.com/send?phone=$cleanPhone&text=$encodedMsg")
-        val intent = android.content.Intent(android.content.Intent.ACTION_VIEW, uri)
-        context.startActivity(intent)
-    } catch (e: Exception) {
-        sendViaSms(context, phone, message)
+@Composable
+fun SubscriptionTierCard(
+    title: String,
+    duration: String,
+    price: String,
+    description: String,
+    badge: String? = null,
+    isHighlight: Boolean = false,
+    onSubscribe: () -> Unit
+) {
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(16.dp),
+        colors = CardDefaults.cardColors(
+            containerColor = if (isHighlight) MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.7f) else MaterialTheme.colorScheme.surfaceVariant
+        ),
+        border = BorderStroke(
+            if (isHighlight) 2.dp else 1.dp,
+            if (isHighlight) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outlineVariant
+        )
+    ) {
+        Column(
+            modifier = Modifier.padding(18.dp),
+            verticalArrangement = Arrangement.spacedBy(10.dp)
+        ) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(title, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+                badge?.let {
+                    Surface(
+                        shape = RoundedCornerShape(6.dp),
+                        color = Color(0xFFD97706)
+                    ) {
+                        Text(
+                            text = it,
+                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp),
+                            color = Color.White,
+                            style = MaterialTheme.typography.labelSmall,
+                            fontWeight = FontWeight.Bold
+                        )
+                    }
+                }
+            }
+
+            Text(
+                text = price,
+                fontSize = 22.sp,
+                fontWeight = FontWeight.ExtraBold,
+                color = MaterialTheme.colorScheme.primary
+            )
+
+            Text(
+                text = "• المدة: $duration\n• $description",
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+
+            Button(
+                onClick = onSubscribe,
+                modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(10.dp)
+            ) {
+                Text("اشترك الآن بالباقة")
+            }
+        }
     }
 }
-
-fun sendViaSms(context: android.content.Context, phone: String, message: String) {
-    try {
-        val intent = android.content.Intent(android.content.Intent.ACTION_SENDTO, android.net.Uri.parse("smsto:$phone"))
-        intent.putExtra("sms_body", message)
-        context.startActivity(intent)
-    } catch (e: Exception) {
-        copyToClipboard(context, message, "تفاصيل الطلب")
-    }
-}
-

@@ -10,38 +10,37 @@ import com.example.data.local.entities.*
 @Database(
     entities = [
         UserEntity::class,
-        SubscriptionEntity::class,
-        SubscriptionPlanEntity::class,
-        SubscriptionCodeEntity::class,
-        PaymentRequestEntity::class,
         SubjectEntity::class,
         UnitEntity::class,
-        ChapterEntity::class,
         LessonEntity::class,
         QuestionEntity::class,
         ExamEntity::class,
-        ExamResultEntity::class,
-        StudentProgressEntity::class,
+        ExamQuestionCrossRef::class,
+        UserProgressEntity::class,
         FavoriteEntity::class,
-        NotificationEntity::class,
-        ActivityLogEntity::class
+        SubscriptionEntity::class,
+        PaymentRequestEntity::class,
+        SubscriptionCodeEntity::class,
+        AdminLogEntity::class,
+        DocumentBookletEntity::class,
+        ExamResultEntity::class,
+        NotificationEntity::class
     ],
-    version = 3,
+    version = 5,
     exportSchema = false
 )
 abstract class AppDatabase : RoomDatabase() {
     abstract fun userDao(): UserDao
-    abstract fun subscriptionDao(): SubscriptionDao
-    abstract fun subscriptionPlanDao(): SubscriptionPlanDao
-    abstract fun subscriptionCodeDao(): SubscriptionCodeDao
-    abstract fun paymentRequestDao(): PaymentRequestDao
     abstract fun curriculumDao(): CurriculumDao
     abstract fun questionDao(): QuestionDao
     abstract fun examDao(): ExamDao
     abstract fun progressDao(): ProgressDao
     abstract fun favoriteDao(): FavoriteDao
+    abstract fun subscriptionDao(): SubscriptionDao
+    abstract fun adminLogDao(): AdminLogDao
+    abstract fun documentBookletDao(): DocumentBookletDao
+    abstract fun examResultDao(): ExamResultDao
     abstract fun notificationDao(): NotificationDao
-    abstract fun activityLogDao(): ActivityLogDao
 
     companion object {
         @Volatile
@@ -52,10 +51,10 @@ abstract class AppDatabase : RoomDatabase() {
                 val instance = Room.databaseBuilder(
                     context.applicationContext,
                     AppDatabase::class.java,
-                    "yemen_secondary_academy.db"
+                    "raqeeb_academy_database"
                 )
-                .fallbackToDestructiveMigration(dropAllTables = true)
-                .build()
+                    .fallbackToDestructiveMigration()
+                    .build()
                 INSTANCE = instance
                 instance
             }

@@ -1,8 +1,74 @@
 <?xml version="1.0" encoding="utf-8"?>
-<layer-list xmlns:android="http://schemas.android.com/apk/res/android">
-    <item
-        android:width="72dp"
-        android:height="72dp"
-        android:drawable="@drawable/ic_raqeeb_logo"
-        android:gravity="center" />
-</layer-list>
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+
+    <!-- Gold Laureate Outer Ring -->
+    <path
+        android:strokeColor="#F59E0B"
+        android:strokeWidth="2.5"
+        android:fillColor="#00000000"
+        android:pathData="M54,16 C33,16 16,33 16,54 C16,75 33,92 54,92 C75,92 92,75 92,54 C92,33 75,16 54,16 Z" />
+
+    <!-- Open Secondary Curriculum Book -->
+    <!-- Left Page -->
+    <path
+        android:fillColor="#E2E8F0"
+        android:pathData="M34,74 C41,71 49,72 53,76 L53,82 C49,78 41,77 34,80 Z" />
+    <!-- Right Page -->
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M55,76 C59,72 67,71 74,74 L74,80 C67,77 59,78 55,82 Z" />
+    <!-- Book Center -->
+    <path
+        android:fillColor="#F59E0B"
+        android:pathData="M53,76 L55,76 L55,82 L53,82 Z" />
+
+    <!-- Letter R Vertical Column -->
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M38,36 L47,36 L47,73 L38,73 Z" />
+
+    <!-- Letter R Upper Loop -->
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M46,36 L62,36 C69,36 74,40 74,47 C74,54 69,58 62,58 L46,58 Z" />
+
+    <!-- Inner Cutout of Upper Loop -->
+    <path
+        android:fillColor="#0A1E3F"
+        android:pathData="M47,42 L60,42 C63.5,42 66,43.8 66,47 C66,50.2 63.5,52 60,52 L47,52 Z" />
+
+    <!-- Letter R Diagonal Leg -->
+    <path
+        android:fillColor="#38BDF8"
+        android:pathData="M54,56 L62,56 L74,73 L65,73 Z" />
+
+    <!-- Graduation Cap Moratboard on Top of R -->
+    <path
+        android:fillColor="#F59E0B"
+        android:pathData="M54,23 L73,29 L54,35 L35,29 Z" />
+
+    <!-- Cap Base -->
+    <path
+        android:fillColor="#D97706"
+        android:pathData="M44,31 L44,35 C44,37.5 54,39 54,39 C54,39 64,37.5 64,35 L64,31 L54,34.5 Z" />
+
+    <!-- Tassel Ribbon & Bob -->
+    <path
+        android:strokeColor="#FDE68A"
+        android:strokeWidth="1.5"
+        android:fillColor="#00000000"
+        android:pathData="M55,28 L68,34 L68,40" />
+    <path
+        android:fillColor="#F59E0B"
+        android:pathData="M66,39 L70,39 L71,43 L65,43 Z" />
+
+    <!-- Star of Academic Excellence -->
+    <path
+        android:fillColor="#FBBF24"
+        android:pathData="M78,32 L79.5,35 L82.5,36 L79.5,37 L78,40 L76.5,37 L73.5,36 L76.5,35 Z" />
+
+</vector>

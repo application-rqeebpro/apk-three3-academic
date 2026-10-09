@@ -1,62 +1,61 @@
 package com.example.data.remote
 
-import com.squareup.moshi.Json
-import com.squareup.moshi.JsonClass
-
-@JsonClass(generateAdapter = true)
-data class GeminiRequest(
-    val contents: List<GeminiContent>,
-    @Json(name = "generationConfig")
-    val generationConfig: GeminiGenerationConfig? = null,
-    @Json(name = "systemInstruction")
-    val systemInstruction: GeminiContent? = null
-)
-
-@JsonClass(generateAdapter = true)
-data class GeminiContent(
-    val role: String = "user",
-    val parts: List<GeminiPart>
-)
-
-@JsonClass(generateAdapter = true)
-data class GeminiPart(
-    val text: String? = null,
-    @Json(name = "inline_data")
-    val inlineData: GeminiInlineData? = null,
-    @Json(name = "thoughtSignature")
-    val thoughtSignature: String? = null
-)
-
 data class AttachedFile(
     val fileName: String,
     val mimeType: String,
-    val base64Data: String,
-    val sizeBytes: Long
+    val base64Data: String
 )
 
-@JsonClass(generateAdapter = true)
+data class GeminiPart(
+    val text: String? = null,
+    val inlineData: GeminiInlineData? = null
+)
+
 data class GeminiInlineData(
-    @Json(name = "mime_type")
     val mimeType: String,
     val data: String
 )
 
-@JsonClass(generateAdapter = true)
+data class GeminiContent(
+    val role: String,
+    val parts: List<GeminiPart>
+)
+
 data class GeminiGenerationConfig(
-    val temperature: Float? = 0.2f,
-    val topP: Float? = 0.95f,
-    val topK: Int? = 40,
-    val maxOutputTokens: Int? = 4096,
-    @Json(name = "response_mime_type")
+    val temperature: Float = 0.2f,
+    val topP: Float = 0.9f,
+    val maxOutputTokens: Int = 8192,
     val responseMimeType: String? = null
 )
 
-@JsonClass(generateAdapter = true)
-data class GeminiResponse(
-    val candidates: List<GeminiCandidate>? = null
+data class GeminiRequest(
+    val contents: List<GeminiContent>,
+    val systemInstruction: GeminiContent? = null,
+    val generationConfig: GeminiGenerationConfig? = null
 )
 
-@JsonClass(generateAdapter = true)
 data class GeminiCandidate(
-    val content: GeminiContent? = null
+    val content: GeminiContent? = null,
+    val finishReason: String? = null
+)
+
+data class GeminiResponse(
+    val candidates: List<GeminiCandidate>? = null
+) {
+    fun extractText(): String? {
+        return candidates?.firstOrNull()?.content?.parts?.firstOrNull()?.text
+    }
+}
+
+data class SmartTeacherResponse(
+    val answerText: String,
+    val subject: String = "عام",
+    val keyPoints: List<String> = emptyList(),
+    val formulas: List<String> = emptyList(),
+    val videoTitle: String? = null,
+    val videoQuery: String? = null,
+    val videoDescription: String? = null,
+    val diagramTitle: String? = null,
+    val diagramSummary: String? = null,
+    val pdfTitle: String? = null
 )

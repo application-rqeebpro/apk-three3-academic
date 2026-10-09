@@ -1,447 +1,610 @@
 package com.example.ui
 
 import android.app.Application
+import android.content.Context
 import android.graphics.Bitmap
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.data.local.AppDatabase
 import com.example.data.local.DatabaseSeeder
 import com.example.data.local.entities.*
+import com.example.data.pdf.PdfBookletGenerator
 import com.example.data.remote.AttachedFile
 import com.example.data.remote.GeminiRepository
 import com.example.data.repository.AppRepository
 import com.example.data.solver.EducationalSolution
-import com.example.data.solver.EducationalSolverEngine
 import com.example.data.solver.ProblemVerification
-import com.example.data.solver.toFormattedEducationalText
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
+import java.io.File
 
-data class ChatMessage(
-    val id: String = java.util.UUID.randomUUID().toString(),
-    val text: String,
-    val isUser: Boolean,
-    val timestamp: Long = System.currentTimeMillis()
-)
-
-sealed class Screen(val title: String) {
-    object Home : Screen("الرئيسية")
-    object Subjects : Screen("المواد الدراسية")
-    object Units : Screen("الوحدات الدراسية")
-    object LessonDetail : Screen("شرح الدرس")
-    object SmartTutor : Screen("المعلم الذكي")
-    object SolveMyQuestion : Screen("حل سؤالي")
-    object Exams : Screen("اختبر نفسك")
-    object ExamSession : Screen("جلسة الاختبار")
-    object ExamResult : Screen("نتيجة الاختبار")
-    object QuestionBank : Screen("بنك الأسئلة")
-    object Subscription : Screen("الاشتراكات")
-    object PaymentForm : Screen("الدفع بالمحفظة")
-    object ActivateCode : Screen("تفعيل الكود")
-    object Search : Screen("البحث")
-    object Favorites : Screen("المفضلة")
-    object Progress : Screen("تقدمي الدراسي")
-    object Profile : Screen("حسابي")
-    object Login : Screen("تسجيل الدخول")
-    object Register : Screen("إنشاء حساب جديد")
-    object ExplainMe : Screen("خدمة اشرح لي")
-    object SubscriptionGate : Screen("تفعيل الاشتراك")
-    object AdminDashboard : Screen("لوحة تحكم المالك")
-    object AdminStudents : Screen("إدارة الطلاب")
-    object AdminPayments : Screen("طلبات الدفع")
-    object AdminCodes : Screen("أكواد الاشتراكات")
-    object AdminContent : Screen("إدارة المحتوى")
-    object AdminNotifications : Screen("إرسال الإشعارات")
-    object AdminLogs : Screen("سجل العمليات")
-    object ScientificCalculator : Screen("الحاسبة العلمية")
-}
-
-@OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class, kotlinx.coroutines.FlowPreview::class)
 class MainViewModel(application: Application) : AndroidViewModel(application) {
 
     val database = AppDatabase.getInstance(application)
     val repository = AppRepository(database)
     val geminiRepo = GeminiRepository()
 
-    // Screen navigation stack
+    // Navigation Stack
     private val _screenStack = MutableStateFlow<List<Screen>>(listOf(Screen.Home))
-    val currentScreen: StateFlow<Screen> = _screenStack.map { it.lastOrNull() ?: Screen.Home }
+    val currentScreen: StateFlow<Screen> = _screenStack
+        .map { it.lastOrNull() ?: Screen.Home }
         .stateIn(viewModelScope, SharingStarted.Eagerly, Screen.Home)
 
-    // User State
-    val currentUser = repository.currentUser
-    val activeSubscription = currentUser.flatMapLatest { user ->
-        if (user != null) repository.getActiveSubscriptionForUser(user.id) else flowOf(null)
-    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), null)
-
-    val isSubscribed: StateFlow<Boolean> = activeSubscription.map { sub ->
-        sub != null && sub.endDate > System.currentTimeMillis()
-    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), false)
-
-    // Dark mode toggle
+    // Dark Mode
     private val _isDarkMode = MutableStateFlow(false)
-    val isDarkMode = _isDarkMode.asStateFlow()
+    val isDarkMode: StateFlow<Boolean> = _isDarkMode.asStateFlow()
 
-    // Curriculum selections
-    val allSubjects = repository.getAllSubjects()
+    fun toggleDarkMode() {
+        _isDarkMode.value = !_isDarkMode.value
+    }
+
+    // Current User & Auth
+    private val _currentUser = MutableStateFlow<UserEntity?>(null)
+    val currentUser: StateFlow<UserEntity?> = _currentUser.asStateFlow()
+
+    // Subscriptions
+    val activeSubscription: StateFlow<SubscriptionEntity?> = _currentUser
+        .flatMapLatest { user ->
+            if (user != null) repository.getActiveSubscription(user.id)
+            else flowOf(null)
+        }
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), null)
+
+    val isSubscribed: StateFlow<Boolean> = activeSubscription
+        .map { sub -> sub != null && sub.isActive && sub.endDate > System.currentTimeMillis() }
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), false)
+
+    // Toast & Alerts
+    private val _toastMessage = MutableStateFlow<String?>(null)
+    val toastMessage: StateFlow<String?> = _toastMessage.asStateFlow()
+
+    fun clearToast() {
+        _toastMessage.value = null
+    }
+
+    // Curriculum
+    val allSubjects: StateFlow<List<SubjectEntity>> = repository.getAllSubjects()
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
     private val _selectedSubject = MutableStateFlow<SubjectEntity?>(null)
-    val selectedSubject = _selectedSubject.asStateFlow()
+    val selectedSubject: StateFlow<SubjectEntity?> = _selectedSubject.asStateFlow()
 
-    val unitsForSelectedSubject = _selectedSubject.flatMapLatest { sub ->
-        if (sub != null) repository.getUnitsForSubject(sub.id) else flowOf(emptyList())
-    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+    val unitsForSelectedSubject: StateFlow<List<UnitEntity>> = _selectedSubject
+        .flatMapLatest { subject ->
+            if (subject != null) repository.getUnitsForSubject(subject.id)
+            else flowOf(emptyList())
+        }
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
     private val _selectedUnit = MutableStateFlow<UnitEntity?>(null)
-    val selectedUnit = _selectedUnit.asStateFlow()
+    val selectedUnit: StateFlow<UnitEntity?> = _selectedUnit.asStateFlow()
 
-    val lessonsForSelectedUnit = _selectedUnit.flatMapLatest { unit ->
-        if (unit != null) repository.getLessonsForUnit(unit.id) else flowOf(emptyList())
-    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+    val lessonsForSelectedUnit: StateFlow<List<LessonEntity>> = _selectedUnit
+        .flatMapLatest { unit ->
+            if (unit != null) repository.getLessonsForUnit(unit.id)
+            else flowOf(emptyList())
+        }
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
     private val _selectedLesson = MutableStateFlow<LessonEntity?>(null)
-    val selectedLesson = _selectedLesson.asStateFlow()
+    val selectedLesson: StateFlow<LessonEntity?> = _selectedLesson.asStateFlow()
 
-    // Explanation Level: "بسيط جداً", "عادي", "مفصل", "أمثلة", "اختبرني"
-    private val _explanationLevel = MutableStateFlow("عادي")
-    val explanationLevel = _explanationLevel.asStateFlow()
+    // Document Booklets (PDF & Word files)
+    val allDocumentBooklets: StateFlow<List<DocumentBookletEntity>> = repository.getAllDocumentBooklets()
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
-    // Easier Explanation dynamic text
-    private val _simplerExplanationText = MutableStateFlow<String?>(null)
-    val simplerExplanationText = _simplerExplanationText.asStateFlow()
-    val isGeneratingSimpler = MutableStateFlow(false)
+    private val _selectedBooklet = MutableStateFlow<DocumentBookletEntity?>(null)
+    val selectedBooklet: StateFlow<DocumentBookletEntity?> = _selectedBooklet.asStateFlow()
+
+    fun selectBooklet(booklet: DocumentBookletEntity) {
+        _selectedBooklet.value = booklet
+        navigateTo(Screen.PdfViewer)
+    }
+
+    // Explanation ("اشرح لي")
+    private val _explanationLevel = MutableStateFlow("مفصل")
+    val explanationLevel: StateFlow<String> = _explanationLevel.asStateFlow()
+
+    private val _simplerExplanationText = MutableStateFlow("")
+    val simplerExplanationText: StateFlow<String> = _simplerExplanationText.asStateFlow()
+
+    private val _isGeneratingSimpler = MutableStateFlow(false)
+    val isGeneratingSimpler: StateFlow<Boolean> = _isGeneratingSimpler.asStateFlow()
 
     // Smart Tutor Chat
     private val _chatMessages = MutableStateFlow<List<ChatMessage>>(
         listOf(
             ChatMessage(
-                text = "مرحباً بك يا بطل! أنا معلمك الذكي الخاص بمنهج الصف الثالث الثانوي اليمني 🇾🇪. اسألني عن أي قانون، أو مسألة، أو اطلب مني شرح أي فكرة خطوة بخطوة. وإذا لم تفهم سأبسطها لك حتى تستوعبها تماماً!",
+                text = "مرحباً بك يا بطل! أنا معلمك الذكي الخاص بالمنهج اليمني للصف الثالث الثانوي. اسألني في الرياضيات، الكيمياء، الفيزياء، أو أي درس وسأجيبك بأدق التفاصيل والخطوات الوزارية.",
                 isUser = false
             )
         )
     )
-    val chatMessages = _chatMessages.asStateFlow()
-    val isTutorThinking = MutableStateFlow(false)
+    val chatMessages: StateFlow<List<ChatMessage>> = _chatMessages.asStateFlow()
 
-    // Solver
+    private val _isTutorThinking = MutableStateFlow(false)
+    val isTutorThinking: StateFlow<Boolean> = _isTutorThinking.asStateFlow()
+
+    val smartTutorSelectedSubject = MutableStateFlow("الرياضيات")
+    val smartTutorAttachedImage = MutableStateFlow<Bitmap?>(null)
+    val smartTutorRequestedModalities = MutableStateFlow(setOf("TEXT", "VIDEO", "IMAGE", "PDF"))
+    val isGeneratingTutorPdf = MutableStateFlow(false)
+
+    // Problem & Exam Solver ("حل سؤالي")
     val solverQuestionInput = MutableStateFlow("")
     val solverSelectedSubject = MutableStateFlow("الرياضيات")
     val solverImageBitmap = MutableStateFlow<Bitmap?>(null)
     val solverAttachedFile = MutableStateFlow<AttachedFile?>(null)
-    val solverResultText = MutableStateFlow<String?>(null)
+    val solverResultText = MutableStateFlow("")
     val solverStructuredResult = MutableStateFlow<EducationalSolution?>(null)
     val isSolving = MutableStateFlow(false)
     val isVerifyingSolution = MutableStateFlow(false)
     val verificationReport = MutableStateFlow<ProblemVerification?>(null)
 
-    // Search
-    val searchQuery = MutableStateFlow("")
-    val searchResults = searchQuery.debounce(300).flatMapLatest { q ->
-        if (q.isBlank()) flowOf(emptyList()) else repository.searchLessons(q)
-    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
-
     // Exams
-    val allExams = repository.getAllExams()
+    val allExams: StateFlow<List<ExamEntity>> = repository.getAllExams()
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+
     private val _currentExam = MutableStateFlow<ExamEntity?>(null)
-    val currentExam = _currentExam.asStateFlow()
+    val currentExam: StateFlow<ExamEntity?> = _currentExam.asStateFlow()
 
     val examQuestions = MutableStateFlow<List<QuestionEntity>>(emptyList())
     val userExamAnswers = MutableStateFlow<Map<Long, String>>(emptyMap())
     val currentExamResult = MutableStateFlow<ExamResultEntity?>(null)
     val isExamSubmitted = MutableStateFlow(false)
 
-    // Question Bank Filters
+    // Question Bank & Search
+    val searchQuery = MutableStateFlow("")
     val questionBankFilterSubject = MutableStateFlow<Long?>(null)
-    val questionBankFilterDifficulty = MutableStateFlow<String?>(null)
-    val allQuestions = repository.getAllQuestions()
+    val questionBankFilterDifficulty = MutableStateFlow("ALL")
+
+    val allQuestions: StateFlow<List<QuestionEntity>> = repository.getAllQuestions()
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
-    // User Progress & Favorites
-    val completedLessonIds = currentUser.flatMapLatest { u ->
-        if (u != null) repository.getCompletedLessonIds(u.id) else flowOf(emptyList())
-    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
-
-    val userFavorites = currentUser.flatMapLatest { u ->
-        if (u != null) repository.getFavoritesForUser(u.id) else flowOf(emptyList())
-    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
-
-    val userExamResults = currentUser.flatMapLatest { u ->
-        if (u != null) repository.getExamResultsForUser(u.id) else flowOf(emptyList())
-    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
-
-    // Notifications
-    val notifications = repository.getAllNotifications()
-        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
-
-    // Admin state
-    val adminStudentCount = repository.getStudentCount()
-        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), 0)
-    val adminActiveStudentCount = repository.getActiveStudentCount()
-        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), 0)
-    val adminActiveSubCount = repository.getAllActiveSubscriptions().map { it.size }
-        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), 0)
-    val adminExpiredSubCount = repository.getAllExpiredSubscriptions().map { it.size }
-        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), 0)
-    val adminPendingPaymentCount = repository.getPendingPaymentCount()
-        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), 0)
-    val adminAllPayments = repository.getAllPaymentRequests()
-        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
-    val adminAllCodes = repository.getAllCodes()
-        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
-    val adminUnusedCodeCount = repository.getUnusedCodeCount()
-        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), 0)
-    val adminUsedCodeCount = repository.getUsedCodeCount()
-        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), 0)
-    val adminAllUsers = repository.getAllUsers()
-        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
-    val adminActivityLogs = repository.getAllActivityLogs()
-        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
-
-    fun deleteAccount(userId: Long) {
-        viewModelScope.launch {
-            repository.deleteAccount(userId)
+    val searchResults: StateFlow<List<LessonEntity>> = searchQuery
+        .debounce(300)
+        .flatMapLatest { q ->
+            if (q.isBlank()) flowOf(emptyList())
+            else repository.searchLessons(q)
         }
-    }
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
-    // Notification toast / alert
-    val toastMessage = MutableStateFlow<String?>(null)
+    // Progress & Favorites
+    val completedLessonIds: StateFlow<List<Long>> = _currentUser
+        .flatMapLatest { user ->
+            if (user != null) repository.getCompletedLessonIds(user.id)
+            else flowOf(emptyList())
+        }
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+
+    val userFavorites: StateFlow<List<FavoriteEntity>> = _currentUser
+        .flatMapLatest { user ->
+            if (user != null) repository.getUserFavorites(user.id)
+            else flowOf(emptyList())
+        }
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+
+    val userExamResults: StateFlow<List<ExamResultEntity>> = _currentUser
+        .flatMapLatest { user ->
+            if (user != null) repository.getUserExamResults(user.id)
+            else flowOf(emptyList())
+        }
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+
+    val notifications: StateFlow<List<NotificationEntity>> = repository.getAllNotifications()
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+
+    // Admin Dashboard States
+    val adminAllUsers: StateFlow<List<UserEntity>> = repository.getAllUsers()
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+
+    val adminStudentCount: StateFlow<Int> = adminAllUsers
+        .map { users -> users.count { it.role == "STUDENT" } }
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), 0)
+
+    val adminActiveStudentCount: StateFlow<Int> = adminAllUsers
+        .map { users -> users.count { it.role == "STUDENT" && it.isActive } }
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), 0)
+
+    val adminAllPayments: StateFlow<List<PaymentRequestEntity>> = repository.getAllPaymentRequests()
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+
+    val adminPendingPaymentCount: StateFlow<Int> = adminAllPayments
+        .map { list -> list.count { it.status == "PENDING" } }
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), 0)
+
+    val adminAllCodes: StateFlow<List<SubscriptionCodeEntity>> = repository.getAllCodes()
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+
+    val adminUnusedCodeCount: StateFlow<Int> = adminAllCodes
+        .map { list -> list.count { !it.isUsed } }
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), 0)
+
+    val adminUsedCodeCount: StateFlow<Int> = adminAllCodes
+        .map { list -> list.count { it.isUsed } }
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), 0)
+
+    val adminAllSubscriptions: StateFlow<List<SubscriptionEntity>> = repository.getAllSubscriptions()
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+
+    val adminActiveSubCount: StateFlow<Int> = adminAllSubscriptions
+        .map { list -> list.count { it.isActive && it.endDate > System.currentTimeMillis() } }
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), 0)
+
+    val adminExpiredSubCount: StateFlow<Int> = adminAllSubscriptions
+        .map { list -> list.count { !it.isActive || it.endDate <= System.currentTimeMillis() } }
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), 0)
+
+    val adminActivityLogs: StateFlow<List<AdminLogEntity>> = repository.getAllLogs()
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
     init {
-        viewModelScope.launch {
+        viewModelScope.launch(Dispatchers.IO) {
             DatabaseSeeder.seedDatabaseIfEmpty(database)
+            val admin = repository.getUserByPhoneOrEmail("782916997")
+            if (admin != null && _currentUser.value == null) {
+                _currentUser.value = admin
+            }
         }
     }
 
-    // ---------------------------------------------------------
-    // NAVIGATION
-    // ---------------------------------------------------------
-
+    // Navigation Methods
     fun navigateTo(screen: Screen) {
-        _screenStack.update { it + screen }
+        val current = _screenStack.value
+        if (current.lastOrNull() != screen) {
+            _screenStack.value = current + screen
+        }
     }
 
     fun navigateBack(): Boolean {
-        if (_screenStack.value.size > 1) {
-            _screenStack.update { it.dropLast(1) }
-            return true
+        val current = _screenStack.value
+        return if (current.size > 1) {
+            _screenStack.value = current.dropLast(1)
+            true
+        } else {
+            false
         }
-        return false
     }
 
-    fun toggleDarkMode() {
-        _isDarkMode.value = !_isDarkMode.value
+    // Auth
+    fun login(phoneOrEmail: String, pass: String, onError: (String) -> Unit, onSuccess: () -> Unit) {
+        viewModelScope.launch {
+            val user = repository.getUserByPhoneOrEmail(phoneOrEmail.trim())
+            if (user == null) {
+                onError("الحساب غير موجود")
+            } else if (user.passwordHash != pass) {
+                onError("كلمة المرور غير صحيحة")
+            } else if (!user.isActive) {
+                onError("تم تجميد هذا الحساب من قبل الإدارة")
+            } else {
+                _currentUser.value = user
+                onSuccess()
+            }
+        }
     }
 
-    // ---------------------------------------------------------
-    // AUTHENTICATION
-    // ---------------------------------------------------------
-
-    fun login(
+    fun register(
+        name: String,
         phoneOrEmail: String,
         pass: String,
-        onError: ((String) -> Unit)? = null,
-        onSuccess: () -> Unit
+        confirmPass: String,
+        track: String,
+        subscriptionCode: String = "",
+        onSuccess: () -> Unit,
+        onError: (String) -> Unit = {}
     ) {
         viewModelScope.launch {
-            val result = repository.login(phoneOrEmail, pass)
-            result.onSuccess {
-                toastMessage.value = "أهلاً بك يا ${it.fullName}"
-                onSuccess()
-            }.onFailure {
-                val err = it.message ?: "فشل تسجيل الدخول"
-                toastMessage.value = err
-                onError?.invoke(err)
+            if (pass != confirmPass) {
+                onError("كلمة المرور وتأكيد كلمة المرور غير متطابقين")
+                return@launch
             }
-        }
-    }
+            val existing = repository.getUserByPhoneOrEmail(phoneOrEmail.trim())
+            if (existing != null) {
+                onError("رقم الهاتف مسجل مسبقاً، يرجى تسجيل الدخول")
+                return@launch
+            }
+            val newUser = UserEntity(
+                fullName = name.trim(),
+                phoneOrEmail = phoneOrEmail.trim(),
+                passwordHash = pass,
+                role = "STUDENT",
+                track = track
+            )
+            val id = repository.registerUser(newUser)
+            _currentUser.value = newUser.copy(id = id)
 
-    fun register(name: String, phoneOrEmail: String, pass: String, confirmPass: String, track: String, onSuccess: () -> Unit) {
-        if (name.isBlank() || phoneOrEmail.isBlank() || pass.isBlank()) {
-            toastMessage.value = "يرجى ملء جميع الحقول المطلوبة"
-            return
-        }
-        if (pass != confirmPass) {
-            toastMessage.value = "كلمتا المرور غير متطابقتين"
-            return
-        }
-        viewModelScope.launch {
-            val result = repository.register(name, phoneOrEmail, pass, track = track)
-            result.onSuccess {
-                toastMessage.value = "تم إنشاء الحساب بنجاح!"
-                onSuccess()
-            }.onFailure {
-                toastMessage.value = it.message ?: "فشل إنشاء الحساب"
+            if (subscriptionCode.isNotBlank()) {
+                val codeResult = repository.activateCodeByStudent(id, subscriptionCode.trim())
+                if (codeResult.isSuccess) {
+                    _toastMessage.value = "تم إنشاء الحساب وتفعيل اشتراكك بنجاح! مرحباً بك يا ${name.trim()}"
+                } else {
+                    _toastMessage.value = "تم إنشاء الحساب بنجاح! كود الاشتراك: " + (codeResult.exceptionOrNull()?.message ?: "غير صالح")
+                }
+            } else {
+                _toastMessage.value = "تم إنشاء الحساب بنجاح! مرحباً بك يا ${name.trim()}"
             }
+            onSuccess()
         }
     }
 
     fun logout() {
-        repository.logout()
+        _currentUser.value = null
         _screenStack.value = listOf(Screen.Home)
-        toastMessage.value = "تم تسجيل الخروج"
     }
 
-    fun resetPassword(phoneOrEmail: String, newPass: String, onDone: () -> Unit) {
+    // Owner Operations (صلاحيات المالك الجديدة)
+    fun changeOwnerPassword(newPassword: String, onSuccess: () -> Unit, onError: (String) -> Unit) {
         viewModelScope.launch {
-            val res = repository.resetPassword(phoneOrEmail, newPass)
-            res.onSuccess {
-                toastMessage.value = it
-                onDone()
-            }.onFailure {
-                toastMessage.value = it.message
+            val admin = _currentUser.value
+            if (admin == null || admin.role != "ADMIN") {
+                onError("غير مصرح لك بتغيير كلمة سر الإدارة")
+                return@launch
             }
+            if (newPassword.isBlank() || newPassword.length < 6) {
+                onError("يجب أن تكون كلمة المرور 6 خانات على الأقل")
+                return@launch
+            }
+            repository.changeUserPassword(admin.id, newPassword.trim())
+            _currentUser.value = admin.copy(passwordHash = newPassword.trim())
+            repository.addAdminLog("تغيير كلمة المرور", "تم تغيير كلمة مرور المالك بنجاح")
+            _toastMessage.value = "تم تحديث كلمة المرور بنجاح"
+            onSuccess()
         }
     }
 
-    // ---------------------------------------------------------
-    // CURRICULUM ACTIONS
-    // ---------------------------------------------------------
+    fun adminCancelSubscription(userId: Long, studentName: String) {
+        viewModelScope.launch {
+            repository.revokeUserSubscriptions(userId)
+            repository.addAdminLog("إلغاء اشتراك", "تم إلغاء اشتراك الطالب $studentName (ID: $userId)")
+            _toastMessage.value = "تم إلغاء اشتراك الطالب $studentName بنجاح"
+        }
+    }
 
+    fun adminAddDocumentBooklet(
+        title: String,
+        subjectId: Long,
+        subjectName: String,
+        fileType: String,
+        fileName: String,
+        description: String,
+        fileSize: String = "2.5 MB"
+    ) {
+        viewModelScope.launch {
+            val booklet = DocumentBookletEntity(
+                title = title.trim(),
+                subjectId = subjectId,
+                subjectName = subjectName,
+                fileType = fileType,
+                fileName = fileName.trim(),
+                description = description.trim(),
+                fileSize = fileSize
+            )
+            repository.addDocumentBooklet(booklet)
+            _toastMessage.value = "تمت إضافة ملف $fileType: $title إلى المكتبة بنجاح"
+        }
+    }
+
+    fun adminDeleteDocumentBooklet(booklet: DocumentBookletEntity) {
+        viewModelScope.launch {
+            repository.deleteDocumentBooklet(booklet)
+            _toastMessage.value = "تم حذف الملف بنجاح"
+        }
+    }
+
+    // Curriculum Selection
     fun selectSubject(subject: SubjectEntity) {
         _selectedSubject.value = subject
-        _selectedUnit.value = null
-        _selectedLesson.value = null
         navigateTo(Screen.Units)
     }
 
     fun selectUnit(unit: UnitEntity) {
         _selectedUnit.value = unit
+        navigateTo(Screen.LessonDetail)
     }
 
     fun selectLesson(lesson: LessonEntity) {
         _selectedLesson.value = lesson
-        _simplerExplanationText.value = null
-        _explanationLevel.value = "عادي"
+        _simplerExplanationText.value = ""
         navigateTo(Screen.LessonDetail)
     }
 
-    fun navigateToAdjacentLesson(next: Boolean) {
-        val current = _selectedLesson.value ?: return
+    fun toggleLessonCompletion(lessonId: Long, completed: Boolean) {
+        val user = _currentUser.value ?: return
         viewModelScope.launch {
-            val unitLessons = repository.getLessonsForUnit(current.unitId).firstOrNull() ?: emptyList()
-            val index = unitLessons.indexOfFirst { it.id == current.id }
-            if (index != -1) {
-                val targetIndex = if (next) index + 1 else index - 1
-                if (targetIndex in unitLessons.indices) {
-                    selectLesson(unitLessons[targetIndex])
-                }
-            }
+            repository.toggleLessonProgress(user.id, lessonId, _selectedSubject.value?.id ?: 1L, completed)
         }
     }
 
+    fun toggleFavorite(type: String, itemId: Long, title: String, subtitle: String, isFav: Boolean) {
+        val user = _currentUser.value ?: return
+        viewModelScope.launch {
+            repository.toggleFavorite(user.id, type, itemId, title, subtitle, isFav)
+        }
+    }
+
+    // Explanation ("اشرح لي")
     fun setExplanationLevel(level: String) {
         _explanationLevel.value = level
     }
 
     fun requestSimplerExplanation() {
         val lesson = _selectedLesson.value ?: return
-        if (lesson.easierExplanation.isNotBlank()) {
-            _simplerExplanationText.value = lesson.easierExplanation
-        } else {
-            viewModelScope.launch {
-                isGeneratingSimpler.value = true
-                val result = geminiRepo.explainSimpler(lesson.title, lesson.simplifiedExplanation)
-                _simplerExplanationText.value = result
-                isGeneratingSimpler.value = false
-            }
+        _isGeneratingSimpler.value = true
+        viewModelScope.launch {
+            val prompt = "اشرح لي درس '${lesson.title}' في مادة '${_selectedSubject.value?.name ?: "الرياضيات"}' بمستوى '${_explanationLevel.value}' وبأمثلة توضيحية مبسطة للغاية."
+            val resp = geminiRepo.explainConcept(prompt, _selectedSubject.value?.name ?: "الرياضيات", _explanationLevel.value)
+            _simplerExplanationText.value = resp
+            _isGeneratingSimpler.value = false
         }
     }
 
     fun explainCustomTopic(prompt: String, subject: String) {
+        _isGeneratingSimpler.value = true
         viewModelScope.launch {
-            isGeneratingSimpler.value = true
-            val result = geminiRepo.explainConceptSimpler(prompt, subject)
-            _simplerExplanationText.value = result
-            isGeneratingSimpler.value = false
+            val resp = geminiRepo.explainConcept(prompt, subject, "مفصل")
+            _simplerExplanationText.value = resp
+            _isGeneratingSimpler.value = false
         }
     }
 
-    // ---------------------------------------------------------
-    // SMART TUTOR CHAT
-    // ---------------------------------------------------------
+    // Smart Tutor ("اسأل أستاذي الذكي")
+    fun sendSmartTeacherMessage(
+        text: String,
+        image: Bitmap? = smartTutorAttachedImage.value,
+        subject: String = smartTutorSelectedSubject.value,
+        modalities: Set<String> = smartTutorRequestedModalities.value,
+        context: Context? = null
+    ) {
+        if (text.isBlank() && image == null) return
+
+        val userMsg = ChatMessage(
+            text = text.ifBlank { "سؤال في صورة مرفقة" },
+            isUser = true,
+            userImage = image,
+            subject = subject
+        )
+        _chatMessages.value = _chatMessages.value + userMsg
+        _isTutorThinking.value = true
+
+        viewModelScope.launch {
+            try {
+                val response = geminiRepo.askSmartTeacherFull(
+                    questionText = text,
+                    imageBitmap = image,
+                    subject = subject,
+                    modalities = modalities
+                )
+
+                var pdfPath: String? = null
+                if (modalities.contains("PDF") && context != null) {
+                    try {
+                        val pdfFile = PdfBookletGenerator.generateSmartTeacherAnswerPdf(
+                            context = context,
+                            question = text.ifBlank { "سؤال في صورة مرفقة بمادة $subject" },
+                            answer = response.answerText,
+                            subject = subject,
+                            keyPoints = response.keyPoints,
+                            formulas = response.formulas,
+                            videoTitle = response.videoTitle
+                        )
+                        pdfPath = pdfFile.absolutePath
+                    } catch (_: Exception) {}
+                }
+
+                val teacherMsg = ChatMessage(
+                    text = response.answerText,
+                    isUser = false,
+                    subject = subject,
+                    videoTitle = if (modalities.contains("VIDEO")) response.videoTitle else null,
+                    videoUrl = if (modalities.contains("VIDEO")) response.videoQuery else null,
+                    videoDescription = if (modalities.contains("VIDEO")) response.videoDescription else null,
+                    diagramTitle = if (modalities.contains("IMAGE")) response.diagramTitle else null,
+                    diagramContent = if (modalities.contains("IMAGE")) response.diagramSummary else null,
+                    pdfTitle = if (modalities.contains("PDF")) (response.pdfTitle ?: "ملزمة وشرح الدرس") else null,
+                    pdfFilePath = pdfPath,
+                    keyPoints = response.keyPoints,
+                    formulas = response.formulas
+                )
+                _chatMessages.value = _chatMessages.value + teacherMsg
+            } catch (e: Exception) {
+                val errorMsg = ChatMessage(
+                    text = "تعذر الحصول على الرد حالياً (${e.message}). يرجى التحقق من الاتصال وإعادة المحاولة.",
+                    isUser = false,
+                    subject = subject
+                )
+                _chatMessages.value = _chatMessages.value + errorMsg
+            } finally {
+                _isTutorThinking.value = false
+                smartTutorAttachedImage.value = null
+            }
+        }
+    }
 
     fun sendTutorMessage(text: String) {
-        if (text.isBlank()) return
-        val userMsg = ChatMessage(text = text.trim(), isUser = true)
-        _chatMessages.update { it + userMsg }
+        sendSmartTeacherMessage(text = text)
+    }
 
+    fun generatePdfForMessage(context: Context, message: ChatMessage, onReady: (File) -> Unit) {
         viewModelScope.launch {
-            isTutorThinking.value = true
-            val history = _chatMessages.value.map { it.text to it.isUser }
-            val replyText = geminiRepo.askSmartTutor(
-                chatHistory = history,
-                currentPrompt = text,
-                subjectContext = _selectedSubject.value?.name
-            )
-            _chatMessages.update { it + ChatMessage(text = replyText, isUser = false) }
-            isTutorThinking.value = false
+            isGeneratingTutorPdf.value = true
+            try {
+                val file = PdfBookletGenerator.generateSmartTeacherAnswerPdf(
+                    context = context,
+                    question = "استفسار ومسألة في مادة ${message.subject}",
+                    answer = message.text,
+                    subject = message.subject,
+                    keyPoints = message.keyPoints,
+                    formulas = message.formulas,
+                    videoTitle = message.videoTitle
+                )
+                // Update message in list with path
+                _chatMessages.value = _chatMessages.value.map { msg ->
+                    if (msg.id == message.id) msg.copy(pdfFilePath = file.absolutePath) else msg
+                }
+                onReady(file)
+            } catch (e: Exception) {
+                _toastMessage.value = "تعذر توليد ملف PDF: ${e.message}"
+            } finally {
+                isGeneratingTutorPdf.value = false
+            }
         }
     }
 
-    // ---------------------------------------------------------
-    // PROBLEM SOLVER (حل سؤالي)
-    // ---------------------------------------------------------
+    fun clearTutorChat() {
+        _chatMessages.value = listOf(
+            ChatMessage(
+                text = "مرحباً بك يا بطل! أنا أستاذك الذكي الخاص بالمنهج اليمني للصف الثالث الثانوي. يمكنك سؤالي في أي موضوع أو إرفاق صورة مسألة وسأجيبك بالشرح النصي والفيديو والرسم وملف PDF الجاهز.",
+                isUser = false
+            )
+        )
+        smartTutorAttachedImage.value = null
+    }
 
+    // Problem & 50-Question Exam Solver ("حل سؤالي")
     fun solveQuestion() {
         val text = solverQuestionInput.value.trim()
-        val bmp = solverImageBitmap.value
-        val file = solverAttachedFile.value
-        if (text.isBlank() && bmp == null && file == null) {
-            toastMessage.value = "يرجى كتابة السؤال أو تصوير المسألة أو إرفاق ملفها"
+        val bitmap = solverImageBitmap.value
+        val subject = solverSelectedSubject.value
+
+        if (text.isBlank() && bitmap == null) {
+            _toastMessage.value = "يرجى كتابة السؤال أو إرفاق صورة نموذج الاختبار"
             return
         }
 
-        viewModelScope.launch {
-            isSolving.value = true
-            verificationReport.value = null
-            val solution = geminiRepo.solveStudentQuestionStructured(
-                questionText = text,
-                imageBitmap = bmp,
-                attachedFile = file,
-                subject = solverSelectedSubject.value
-            )
-            solverStructuredResult.value = solution
-            solverResultText.value = solution.toFormattedEducationalText()
-            isSolving.value = false
-        }
-    }
+        isSolving.value = true
+        solverStructuredResult.value = null
+        solverResultText.value = ""
 
-    fun verifyCurrentSolution() {
-        val current = solverStructuredResult.value ?: return
         viewModelScope.launch {
-            isVerifyingSolution.value = true
-            val verified = EducationalSolverEngine.verifySolution(current)
-            verificationReport.value = verified
-            isVerifyingSolution.value = false
-            toastMessage.value = if (verified.isValid) "✓ تم التحقق: الحل مطابق للمعايير الوزارية 100%" else "⚠ تم رصد ملاحظات أثناء التحقق المستقل"
+            try {
+                val solution = geminiRepo.solveStudentQuestionStructured(
+                    questionText = text,
+                    subject = subject,
+                    image = bitmap,
+                    attachedFile = solverAttachedFile.value
+                )
+                solverStructuredResult.value = solution
+                solverResultText.value = solution.finalAnswer
+            } catch (e: Exception) {
+                _toastMessage.value = "تعذر الاتصال بخدمة الذكاء الاصطناعي: ${e.message}"
+            } finally {
+                isSolving.value = false
+            }
         }
-    }
-
-    fun requestEasierExplanationForCurrentProblem() {
-        val current = solverStructuredResult.value ?: return
-        if (current.easierExplanation.isNotBlank()) {
-            _simplerExplanationText.value = current.easierExplanation
-        } else {
-            explainCustomTopic("اشرح لي حل هذه المسألة بأبسط أسلوب ممكن:\n${current.finalAnswer}", current.subject)
-        }
-        navigateTo(Screen.ExplainMe)
     }
 
     fun clearSolver() {
         solverQuestionInput.value = ""
         solverImageBitmap.value = null
         solverAttachedFile.value = null
-        solverResultText.value = null
         solverStructuredResult.value = null
+        solverResultText.value = ""
         verificationReport.value = null
     }
 
-    // ---------------------------------------------------------
-    // EXAMS
-    // ---------------------------------------------------------
-
+    // Exams
     fun startExam(exam: ExamEntity) {
         _currentExam.value = exam
         isExamSubmitted.value = false
@@ -449,21 +612,20 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         currentExamResult.value = null
 
         viewModelScope.launch {
-            val questions = repository.getRandomQuestionsForExam(exam.subjectId, exam.totalQuestions)
+            val questions = repository.getQuestionsForExam(exam.id)
             examQuestions.value = questions
             navigateTo(Screen.ExamSession)
         }
     }
 
-    fun startRandomExam(subjectId: Long, count: Int = 5) {
-        val pseudoExam = ExamEntity(
-            id = 999,
+    fun startRandomExam(subjectId: Long, count: Int = 10) {
+        val exam = ExamEntity(
             subjectId = subjectId,
-            title = "اختبار عشوائي مخصص",
-            totalQuestions = count,
-            passingScore = 60
+            title = "اختبار تجريبي وزاري شامل ($count أسئلة)",
+            durationMinutes = count * 2,
+            totalQuestions = count
         )
-        _currentExam.value = pseudoExam
+        _currentExam.value = exam
         isExamSubmitted.value = false
         userExamAnswers.value = emptyMap()
         currentExamResult.value = null
@@ -476,273 +638,110 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     }
 
     fun setExamAnswer(questionId: Long, answer: String) {
-        if (!isExamSubmitted.value) {
-            userExamAnswers.update { it + (questionId to answer) }
-        }
+        if (isExamSubmitted.value) return
+        userExamAnswers.value = userExamAnswers.value + (questionId to answer)
     }
 
     fun submitExam() {
         val exam = _currentExam.value ?: return
         val questions = examQuestions.value
         val answers = userExamAnswers.value
+        val user = _currentUser.value ?: return
 
         var correct = 0
-        var wrong = 0
-
         questions.forEach { q ->
-            val userAns = answers[q.id]?.trim()
-            if (userAns != null && userAns.equals(q.correctAnswer.trim(), ignoreCase = true)) {
+            if (answers[q.id]?.trim()?.equals(q.correctOption.trim(), ignoreCase = true) == true) {
                 correct++
-            } else {
-                wrong++
             }
         }
+        val scorePercent = if (questions.isNotEmpty()) (correct * 100) / questions.size else 0
+        val isPassed = scorePercent >= 50
 
-        val total = questions.size.coerceAtLeast(1)
-        val scorePercent = (correct * 100) / total
-
-        val resultEntity = ExamResultEntity(
-            userId = currentUser.value?.id ?: 0,
+        val result = ExamResultEntity(
+            userId = user.id,
             examId = exam.id,
-            examTitle = exam.title,
-            subjectName = _selectedSubject.value?.name ?: "عام",
-            scorePercentage = scorePercent,
-            totalQuestions = total,
-            correctCount = correct,
-            wrongCount = wrong
+            subjectId = exam.subjectId,
+            score = scorePercent,
+            totalQuestions = questions.size,
+            correctAnswers = correct,
+            wrongAnswers = questions.size - correct,
+            isPassed = isPassed
         )
 
         viewModelScope.launch {
-            if (currentUser.value != null) {
-                repository.saveExamResult(resultEntity)
-            }
-            currentExamResult.value = resultEntity
+            val resultId = repository.saveExamResult(result)
+            currentExamResult.value = result.copy(id = resultId)
             isExamSubmitted.value = true
             navigateTo(Screen.ExamResult)
         }
     }
 
-    // ---------------------------------------------------------
-    // SUBSCRIPTION & PAYMENTS
-    // ---------------------------------------------------------
-
-    fun submitPayment(
-        planName: String,
-        durationMonths: Int,
-        amountYmr: Int,
-        walletName: String,
-        transRef: String,
-        receiptUri: String? = null,
-        onSuccess: () -> Unit
-    ) {
-        val user = currentUser.value
-        if (user == null) {
-            toastMessage.value = "يرجى تسجيل الدخول أولاً"
-            return
-        }
-        if (transRef.isBlank()) {
-            toastMessage.value = "يرجى إدخال رقم الحوالة أو عملية التحويل"
-            return
-        }
-
+    // Subscriptions & Payments
+    fun submitPayment(planName: String, durationMonths: Int, amountYmr: String, walletName: String, transRef: String, receiptUri: String, onSuccess: () -> Unit) {
+        val user = _currentUser.value ?: return
         viewModelScope.launch {
-            val res = repository.submitPaymentRequest(
+            val req = PaymentRequestEntity(
                 userId = user.id,
                 studentName = user.fullName,
                 studentPhone = user.phoneOrEmail,
-                planName = planName,
-                durationMonths = durationMonths,
-                amountYmr = amountYmr,
-                walletName = walletName,
-                transferRefNumber = transRef,
-                receiptImageUri = receiptUri
+                walletType = walletName,
+                senderNumber = user.phoneOrEmail,
+                transferRef = transRef,
+                amount = amountYmr
             )
-            res.onSuccess {
-                toastMessage.value = "تم إرسال طلب الاشتراك بنجاح! طلبك الآن قيد المراجعة."
-                onSuccess()
-            }.onFailure {
-                toastMessage.value = it.message ?: "فشل إرسال الطلب"
-            }
+            repository.submitPaymentRequest(req)
+            _toastMessage.value = "تم إرسال طلب الاشتراك بنجاح! سيتم التفعيل خلال دقائق."
+            onSuccess()
         }
     }
 
     fun activateCode(code: String, onSuccess: () -> Unit) {
-        val user = currentUser.value
-        if (user == null) {
-            toastMessage.value = "يرجى تسجيل الدخول أولاً"
-            return
-        }
-        if (code.isBlank()) {
-            toastMessage.value = "يرجى إدخال الكود"
-            return
-        }
-
+        val user = _currentUser.value ?: return
         viewModelScope.launch {
-            val res = repository.activateCodeByStudent(
-                userId = user.id,
-                studentName = user.fullName,
-                studentPhone = user.phoneOrEmail,
-                enteredCode = code
-            )
-            res.onSuccess {
-                toastMessage.value = it
+            val result = repository.activateCodeByStudent(user.id, code.trim())
+            if (result.isSuccess) {
+                _toastMessage.value = "تم تفعيل الاشتراك بنجاح!"
                 onSuccess()
-            }.onFailure {
-                toastMessage.value = it.message ?: "فشل تفعيل الكود"
+            } else {
+                _toastMessage.value = result.exceptionOrNull()?.message ?: "كود التفعيل غير صالح"
             }
         }
     }
 
-    // ---------------------------------------------------------
-    // ADMIN ACTIONS
-    // ---------------------------------------------------------
-
-    fun adminReviewPayment(paymentId: Long, approve: Boolean, createCode: Boolean = false, reason: String? = null) {
-        val adminName = currentUser.value?.fullName ?: "المدير العام"
+    // Admin Operations
+    fun adminReviewPayment(paymentId: Long, approve: Boolean, createCode: Boolean = false, reason: String = "") {
         viewModelScope.launch {
-            val res = repository.reviewPaymentRequest(paymentId, approve, createCode, reason, adminName)
-            toastMessage.value = res.getOrNull() ?: res.exceptionOrNull()?.message
+            repository.reviewPaymentRequest(paymentId, approve, createCode, reason)
+            _toastMessage.value = if (approve) "تمت الموافقة وتفعيل الاشتراك" else "تم رفض الطلب"
         }
     }
 
     fun adminDirectActivate(studentId: Long, studentName: String, months: Int, planName: String, price: Int) {
-        val adminName = currentUser.value?.fullName ?: "المدير العام"
         viewModelScope.launch {
-            val res = repository.activateSubscriptionDirectly(studentId, studentName, months, planName, price, adminName)
-            res.onSuccess {
-                toastMessage.value = "تم تفعيل الاشتراك للطالب $studentName بنجاح!"
-            }.onFailure {
-                toastMessage.value = it.message
-            }
+            repository.activateSubscriptionDirectly(studentId, studentName, months, planName, price)
+            _toastMessage.value = "تم تفعيل اشتراك الطالب $studentName مباشرة بنجاح"
         }
     }
 
     fun adminExtendSubscription(studentId: Long, studentName: String, days: Int) {
-        val adminName = currentUser.value?.fullName ?: "المدير العام"
         viewModelScope.launch {
-            val res = repository.extendSubscription(studentId, studentName, days, adminName)
-            toastMessage.value = res.getOrNull() ?: res.exceptionOrNull()?.message
+            repository.extendSubscription(studentId, studentName, days)
+            _toastMessage.value = "تم تمديد اشتراك الطالب $days يوماً"
         }
     }
 
-    fun adminGenerateCode(months: Int, planName: String, price: Int, tiedPhone: String?, onDone: (SubscriptionCodeEntity) -> Unit) {
-        val adminName = currentUser.value?.fullName ?: "المدير العام"
+    fun adminGenerateCode(months: Int, planName: String, price: Int, tiedPhone: String = "", onDone: (SubscriptionCodeEntity) -> Unit) {
         viewModelScope.launch {
-            val code = repository.generateSubscriptionCode(months, planName, price, tiedPhone, adminName)
-            toastMessage.value = "تم إنشاء الكود: ${code.code}"
+            val code = repository.generateSubscriptionCode(months, planName, price, tiedPhone)
+            _toastMessage.value = "تم توليد الكود: ${code.code}"
             onDone(code)
         }
     }
 
     fun adminCancelCode(codeId: Long, code: String) {
-        val adminName = currentUser.value?.fullName ?: "المدير العام"
         viewModelScope.launch {
-            repository.cancelSubscriptionCode(codeId, code, adminName)
-            toastMessage.value = "تم إلغاء الكود $code"
-        }
-    }
-
-    fun adminBroadcastNotification(title: String, message: String, target: String) {
-        val adminName = currentUser.value?.fullName ?: "المدير العام"
-        viewModelScope.launch {
-            repository.sendBroadcastNotification(title, message, target, adminName)
-            toastMessage.value = "تم إرسال الإشعار لجميع الطلاب"
-        }
-    }
-
-    fun adminAddSubject(name: String, desc: String, track: String) {
-        viewModelScope.launch {
-            repository.addSubject(name, desc, track)
-            toastMessage.value = "تمت إضافة المادة بنجاح"
-        }
-    }
-
-    fun adminDeleteSubject(subject: SubjectEntity) {
-        viewModelScope.launch {
-            repository.deleteSubject(subject)
-            toastMessage.value = "تم حذف المادة"
-        }
-    }
-
-    fun adminAddLesson(lesson: LessonEntity) {
-        viewModelScope.launch {
-            repository.addLesson(lesson)
-            toastMessage.value = "تمت إضافة الدرس بنجاح"
-        }
-    }
-
-    fun adminUpdateLesson(lesson: LessonEntity) {
-        viewModelScope.launch {
-            repository.updateLesson(lesson)
-            toastMessage.value = "تم تحديث بيانات الدرس بنجاح"
-        }
-    }
-
-    fun adminDeleteLesson(lesson: LessonEntity) {
-        viewModelScope.launch {
-            repository.deleteLesson(lesson)
-            toastMessage.value = "تم حذف الدرس"
-        }
-    }
-
-    fun adminAddUnit(unit: UnitEntity) {
-        viewModelScope.launch {
-            repository.addUnit(unit)
-            toastMessage.value = "تمت إضافة الوحدة بنجاح"
-        }
-    }
-
-    fun adminUpdateUnit(unit: UnitEntity) {
-        viewModelScope.launch {
-            repository.updateUnit(unit)
-            toastMessage.value = "تم تحديث بيانات الوحدة"
-        }
-    }
-
-    fun adminDeleteUnit(unit: UnitEntity) {
-        viewModelScope.launch {
-            repository.deleteUnit(unit)
-            toastMessage.value = "تم حذف الوحدة"
-        }
-    }
-
-    fun adminAddQuestion(question: QuestionEntity) {
-        viewModelScope.launch {
-            repository.addQuestion(question)
-            toastMessage.value = "تمت إضافة السؤال بنجاح"
-        }
-    }
-
-    fun adminDeleteQuestion(question: QuestionEntity) {
-        viewModelScope.launch {
-            repository.deleteQuestion(question)
-            toastMessage.value = "تم حذف السؤال"
-        }
-    }
-
-    fun adminAddExam(exam: ExamEntity) {
-        viewModelScope.launch {
-            repository.addExam(exam)
-            toastMessage.value = "تمت إضافة الاختبار بنجاح"
-        }
-    }
-
-    // ---------------------------------------------------------
-    // PROGRESS & FAVORITES
-    // ---------------------------------------------------------
-
-    fun toggleLessonCompletion(lessonId: Long, subjectId: Long, completed: Boolean) {
-        val user = currentUser.value ?: return
-        viewModelScope.launch {
-            repository.toggleLessonProgress(user.id, lessonId, subjectId, completed)
-        }
-    }
-
-    fun toggleFavorite(type: String, itemId: Long, title: String, subtitle: String, isFav: Boolean) {
-        val user = currentUser.value ?: return
-        viewModelScope.launch {
-            repository.toggleFavorite(user.id, type, itemId, title, subtitle, isFav)
-            toastMessage.value = if (isFav) "تمت الإضافة للمفضلة ⭐" else "تمت الإزالة من المفضلة"
+            repository.cancelSubscriptionCode(codeId, code)
+            _toastMessage.value = "تم إلغاء الكود $code"
         }
     }
 }
