@@ -43,7 +43,9 @@ fun AcademyTopBar(
     isDarkMode: Boolean,
     onToggleDarkMode: () -> Unit,
     isAdmin: Boolean,
+    showOwnerIcon: Boolean = isAdmin,
     onAdminClick: () -> Unit,
+    onOwnerHoldSuccess: () -> Unit = {},
     modifier: Modifier = Modifier
 ) {
     TopAppBar(
@@ -66,7 +68,11 @@ fun AcademyTopBar(
                     )
                 }
             } else {
-                Box(modifier = Modifier.padding(start = 12.dp)) {
+                Box(
+                    modifier = Modifier
+                        .padding(start = 12.dp)
+                        .secretOwnerHoldTrigger(holdDurationMs = 20_000L, onTrigger = onOwnerHoldSuccess)
+                ) {
                     RaqeebHeaderLogo()
                 }
             }
@@ -80,13 +86,15 @@ fun AcademyTopBar(
                 )
             }
 
-            // Owner / Admin icon
-            IconButton(onClick = onAdminClick, modifier = Modifier.testTag("admin_top_bar_button")) {
-                Icon(
-                    imageVector = Icons.Default.AdminPanelSettings,
-                    contentDescription = "لوحة المالك",
-                    tint = if (isAdmin) AmberSecondary else MaterialTheme.colorScheme.onSurfaceVariant
-                )
+            // Owner / Admin icon (Only shown if already logged in as Admin, OR unlocked via 20s logo hold)
+            if (showOwnerIcon) {
+                IconButton(onClick = onAdminClick, modifier = Modifier.testTag("admin_top_bar_button")) {
+                    Icon(
+                        imageVector = Icons.Default.AdminPanelSettings,
+                        contentDescription = "لوحة المالك",
+                        tint = AmberSecondary
+                    )
+                }
             }
         },
         colors = TopAppBarDefaults.topAppBarColors(
@@ -105,24 +113,42 @@ fun AcademyBottomNav(
 ) {
     NavigationBar(
         containerColor = MaterialTheme.colorScheme.surface,
-        modifier = modifier
+        tonalElevation = 6.dp,
+        modifier = modifier.testTag("academy_bottom_navigation")
     ) {
         val items = listOf(
             Triple(Screen.Home, "الرئيسية", Icons.Default.Home),
-            Triple(Screen.Subjects, "المواد", Icons.Default.MenuBook),
-            Triple(Screen.ExplainMe, "اشرح لي", Icons.Default.AutoFixHigh),
-            Triple(Screen.SolveMyQuestion, "حل سؤالي", Icons.Default.Calculate),
-            Triple(Screen.SmartTutor, "المعلم", Icons.Default.Psychology),
+            Triple(Screen.MyContent, "محتواي", Icons.Default.LibraryBooks),
+            Triple(Screen.Notifications, "الإشعارات", Icons.Default.Notifications),
             Triple(Screen.Profile, "حسابي", Icons.Default.Person)
         )
 
         items.forEach { (screen, label, icon) ->
-            val selected = currentScreen == screen
+            val selected = currentScreen == screen ||
+                (screen == Screen.MyContent && (currentScreen == Screen.StudyMaterials || currentScreen == Screen.Favorites))
             NavigationBarItem(
                 selected = selected,
                 onClick = { onSelectScreen(screen) },
-                icon = { Icon(imageVector = icon, contentDescription = label) },
-                label = { Text(text = label, fontSize = 10.sp, fontWeight = if (selected) FontWeight.Bold else FontWeight.Normal) }
+                icon = {
+                    Icon(
+                        imageVector = icon,
+                        contentDescription = label
+                    )
+                },
+                label = {
+                    Text(
+                        text = label,
+                        fontSize = 11.sp,
+                        fontWeight = if (selected) FontWeight.Bold else FontWeight.Medium
+                    )
+                },
+                colors = NavigationBarItemDefaults.colors(
+                    selectedIconColor = com.example.ui.theme.RaqeebRoyalBlue,
+                    selectedTextColor = com.example.ui.theme.RaqeebRoyalBlue,
+                    indicatorColor = Color(0xFFDBEAFE),
+                    unselectedIconColor = MaterialTheme.colorScheme.onSurfaceVariant,
+                    unselectedTextColor = MaterialTheme.colorScheme.onSurfaceVariant
+                )
             )
         }
     }
@@ -131,6 +157,7 @@ fun AcademyBottomNav(
 @Composable
 fun SectionHeader(
     title: String,
+    subtitle: String? = null,
     actionText: String? = null,
     onActionClick: (() -> Unit)? = null,
     modifier: Modifier = Modifier
@@ -140,13 +167,23 @@ fun SectionHeader(
         horizontalArrangement = Arrangement.SpaceBetween,
         verticalAlignment = Alignment.CenterVertically
     ) {
-        Text(
-            text = title,
-            style = MaterialTheme.typography.titleMedium.copy(
-                fontWeight = FontWeight.Bold,
-                color = NavyPrimary
+        Column {
+            Text(
+                text = title,
+                style = MaterialTheme.typography.titleMedium.copy(
+                    fontWeight = FontWeight.Bold,
+                    color = NavyPrimary
+                )
             )
-        )
+            if (subtitle != null) {
+                Text(
+                    text = subtitle,
+                    style = MaterialTheme.typography.labelSmall.copy(
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                )
+            }
+        }
         if (actionText != null && onActionClick != null) {
             Text(
                 text = actionText,

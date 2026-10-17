@@ -1,174 +1,256 @@
 package com.example.data.solver
 
-data class QuestionSolvedItem(
-    val questionNumber: Int = 1,
-    val questionTitle: String = "السؤال 1",
-    val questionText: String = "",
-    val questionType: String = "MULTIPLE_CHOICE", // "MULTIPLE_CHOICE", "TRUE_FALSE", "CALCULATION", "ESSAY"
-    val selectedOptionLabel: String = "", // e.g. "الاختيار ①" or "الاختيار ③"
-    val selectedOptionText: String? = null,
-    val isTrue: Boolean? = null, // true = صح, false = خطأ
-    val correction: String? = null,
-    val finalAnswer: String = "",
-    val givens: List<String> = emptyList(),
-    val laws: List<String> = emptyList(),
-    val substitutionSteps: List<String> = emptyList(),
-    val calculationSteps: List<String> = emptyList(),
-    val unitCheck: String? = null,
-    val easierExplanation: String? = null
-) {
-    val correctChoice: String
-        get() = when {
-            selectedOptionLabel.isNotBlank() -> "$selectedOptionLabel ${selectedOptionText ?: ""}".trim()
-            isTrue != null -> if (isTrue == true) "صواب ✓" else "خطأ ✗ ${correction?.let { "($it)" } ?: ""}"
-            finalAnswer.isNotBlank() -> finalAnswer
-            else -> "إجابة محددة"
-        }
+import com.squareup.moshi.Json
+import com.squareup.moshi.JsonClass
 
-    val stepsOrReason: String
-        get() = when {
-            calculationSteps.isNotEmpty() -> calculationSteps.joinToString("\n• ")
-            substitutionSteps.isNotEmpty() -> substitutionSteps.joinToString("\n• ")
-            correction != null -> correction
-            else -> ""
-        }
-}
-
+@JsonClass(generateAdapter = true)
 data class ProblemVerification(
+    @Json(name = "is_valid")
     val isValid: Boolean = true,
-    val verificationDetails: String = "✓ تم التحقق المستقل ومراجعة الخطوات الرياضية والعلمية بدقة",
-    val checksList: List<String> = listOf(
-        "✓ تدقيق قراءة وفهم المسألة ومعطياتها",
-        "✓ فحص صحة القوانين المطبقة وفق المنهج اليمني",
-        "✓ مراجعة الحسابات والتعويضات بدقة",
-        "✓ التحقق من منطقية الناتج النهائي والوحدات"
-    ),
+    @Json(name = "verification_details")
+    val verificationDetails: String = "",
+    @Json(name = "checks_list")
+    val checksList: List<String> = emptyList(),
+    @Json(name = "alternative_check")
     val alternativeCheck: String? = null,
+    @Json(name = "common_mistakes_avoided")
     val commonMistakesAvoided: String? = null
 )
 
-data class EducationalSolution(
-    val isImageClear: Boolean = true,
-    val unclearReason: String? = null,
-    val subject: String = "عام",
-    val questionUnderstanding: String = "",
-    val givens: List<String> = emptyList(),
-    val required: String = "",
-    val laws: List<String> = emptyList(),
-    val substitutionSteps: List<String> = emptyList(),
-    val calculationSteps: List<String> = emptyList(),
-    val unitCheck: String? = null,
-    val verification: ProblemVerification = ProblemVerification(),
+@JsonClass(generateAdapter = true)
+data class QuestionSolvedItem(
+    @Json(name = "question_number")
+    val questionNumber: Int = 1,
+    @Json(name = "question_title")
+    val questionTitle: String = "السؤال 1",
+    @Json(name = "question_text")
+    val questionText: String = "",
+    @Json(name = "question_type")
+    val questionType: String = "CALCULATION", // "MULTIPLE_CHOICE", "TRUE_FALSE", "CALCULATION"
+    @Json(name = "selected_option_label")
+    val selectedOptionLabel: String? = null, // e.g. "الاختيار ③"
+    @Json(name = "selected_option_text")
+    val selectedOptionText: String? = null, // e.g. "30°"
+    @Json(name = "is_true")
+    val isTrue: Boolean? = null, // true = صح, false = خطأ
+    @Json(name = "correction")
+    val correction: String? = null, // if false, brief correction
+    @Json(name = "final_answer")
     val finalAnswer: String = "",
-    val multipleChoiceAnswer: String? = null,
-    val confidence: String = "high",
-    val easierExplanation: String = "",
+    @Json(name = "givens")
+    val givens: List<String> = emptyList(),
+    @Json(name = "laws")
+    val laws: List<String> = emptyList(),
+    @Json(name = "substitution_steps")
+    val substitutionSteps: List<String> = emptyList(),
+    @Json(name = "calculation_steps")
+    val calculationSteps: List<String> = emptyList(),
+    @Json(name = "verification_note")
+    val verificationNote: String? = null
+)
+
+@JsonClass(generateAdapter = true)
+data class EducationalSolution(
+    @Json(name = "is_image_clear")
+    val isImageClear: Boolean = true,
+    @Json(name = "unclear_reason")
+    val unclearReason: String? = null,
+    @Json(name = "subject")
+    val subject: String = "عام",
+    @Json(name = "items")
     val items: List<QuestionSolvedItem> = emptyList(),
-    val isExamSheet: Boolean = false,
-    val totalQuestionsCount: Int = 0
+    // Backward compatibility fields for single-question responses
+    @Json(name = "question_understanding")
+    val questionUnderstanding: String = "",
+    @Json(name = "question_type")
+    val questionType: String = "CALCULATION",
+    @Json(name = "selected_option_label")
+    val selectedOptionLabel: String? = null,
+    @Json(name = "selected_option_text")
+    val selectedOptionText: String? = null,
+    @Json(name = "is_true")
+    val isTrue: Boolean? = null,
+    @Json(name = "correction")
+    val correction: String? = null,
+    @Json(name = "givens")
+    val givens: List<String> = emptyList(),
+    @Json(name = "required")
+    val required: String = "",
+    @Json(name = "laws")
+    val laws: List<String> = emptyList(),
+    @Json(name = "substitution_steps")
+    val substitutionSteps: List<String> = emptyList(),
+    @Json(name = "calculation_steps")
+    val calculationSteps: List<String> = emptyList(),
+    @Json(name = "unit_check")
+    val unitCheck: String? = null,
+    @Json(name = "verification")
+    val verification: ProblemVerification = ProblemVerification(),
+    @Json(name = "final_answer")
+    val finalAnswer: String = "",
+    @Json(name = "multiple_choice_answer")
+    val multipleChoiceAnswer: String? = null,
+    @Json(name = "confidence")
+    val confidence: String = "high", // "high", "medium", "unclear"
+    @Json(name = "easier_explanation")
+    val easierExplanation: String = ""
 ) {
+    /**
+     * Resolves the list of questions, converting legacy single-question formats if needed.
+     */
     fun resolvedItems(): List<QuestionSolvedItem> {
         if (items.isNotEmpty()) return items
 
-        // If items is empty but single solution has content, return as item 1
-        if (finalAnswer.isNotBlank() || calculationSteps.isNotEmpty() || givens.isNotEmpty()) {
-            return listOf(
-                QuestionSolvedItem(
-                    questionNumber = 1,
-                    questionTitle = "المسألة",
-                    questionText = questionUnderstanding,
-                    questionType = when {
-                        multipleChoiceAnswer != null -> "MULTIPLE_CHOICE"
-                        finalAnswer.contains("صح") || finalAnswer.contains("خطأ") -> "TRUE_FALSE"
-                        else -> "CALCULATION"
-                    },
-                    selectedOptionLabel = multipleChoiceAnswer ?: "",
-                    finalAnswer = finalAnswer,
-                    givens = givens,
-                    laws = laws,
-                    substitutionSteps = substitutionSteps,
-                    calculationSteps = calculationSteps,
-                    unitCheck = unitCheck,
-                    easierExplanation = easierExplanation
-                )
-            )
+        // Infer question type from available properties
+        val type = when {
+            questionType.isNotBlank() && questionType != "CALCULATION" -> questionType
+            isTrue != null -> "TRUE_FALSE"
+            !selectedOptionLabel.isNullOrBlank() || !multipleChoiceAnswer.isNullOrBlank() -> "MULTIPLE_CHOICE"
+            else -> "CALCULATION"
         }
-        return emptyList()
+
+        val optLabel = when {
+            !selectedOptionLabel.isNullOrBlank() -> MathFormatter.formatOptionLabel(selectedOptionLabel)
+            !multipleChoiceAnswer.isNullOrBlank() -> MathFormatter.formatOptionLabel(multipleChoiceAnswer)
+            else -> null
+        }
+
+        return listOf(
+            QuestionSolvedItem(
+                questionNumber = 1,
+                questionTitle = "السؤال",
+                questionText = questionUnderstanding,
+                questionType = type,
+                selectedOptionLabel = optLabel,
+                selectedOptionText = selectedOptionText?.ifBlank { null } ?: finalAnswer.takeIf { type == "MULTIPLE_CHOICE" },
+                isTrue = isTrue,
+                correction = correction,
+                finalAnswer = finalAnswer,
+                givens = givens,
+                laws = laws,
+                substitutionSteps = substitutionSteps,
+                calculationSteps = calculationSteps,
+                verificationNote = verification.verificationDetails.takeIf { it.isNotBlank() }
+            )
+        )
     }
+    fun countMultipleChoice(): Int = resolvedItems().count { it.questionType == "MULTIPLE_CHOICE" }
+    fun countTrueFalse(): Int = resolvedItems().count { it.questionType == "TRUE_FALSE" }
+    fun countCalculations(): Int = resolvedItems().count { it.questionType != "MULTIPLE_CHOICE" && it.questionType != "TRUE_FALSE" }
 }
 
 fun EducationalSolution.toFormattedEducationalText(): String {
+    if (!isImageClear) {
+        val reason = unclearReason ?: "الجزء الخاص بالسؤال غير واضح في الصورة، أرسل صورة أوضح حتى أحل السؤال بدقة وبشكل صحيح."
+        return "تنبيه بخصوص وضوح السؤال / الصورة:\n${MathFormatter.cleanMathText(reason)}"
+    }
+
+    val qItems = resolvedItems()
+    val isMultiple = qItems.size > 1
     val sb = StringBuilder()
-    val allItems = resolvedItems()
 
-    if (allItems.size > 1) {
-        sb.appendLine("════════════════════════════════════════")
-        sb.appendLine("🇾🇪 نموذج الإجابة النموذجي الكامل للاختبار الوزاري (${allItems.size} سؤالاً)")
-        sb.appendLine("مادة: $subject • منصة رقيب للتعليم الثانوي")
-        sb.appendLine("════════════════════════════════════════\n")
+    if (isMultiple) {
+        sb.append("📋 إجابات الأسئلة (${qItems.size} أسئلة بالمعطيات والخطوات الوزارية):\n\n")
+    }
 
-        for (item in allItems) {
-            sb.appendLine("【السؤال ${item.questionNumber}】: ${item.questionText}")
+    qItems.forEachIndexed { index, item ->
+        val cleanedGivens = MathFormatter.cleanItemList(item.givens)
+        val cleanedLaws = MathFormatter.cleanItemList(item.laws)
+        val cleanedSubst = MathFormatter.cleanItemList(item.substitutionSteps)
+        val cleanedCalcs = MathFormatter.cleanItemList(item.calculationSteps)
+
+        if (isMultiple) {
+            sb.append("🔹 ${item.questionTitle.ifBlank { "السؤال ${index + 1}" }}\n")
+        }
+
+        if (item.questionText.isNotBlank()) {
+            sb.append("السؤال: ${MathFormatter.cleanMathText(item.questionText)}\n")
+        }
+
+        if (!isMultiple) {
+            // Classic single-question whiteboard format
+            if (cleanedGivens.isNotEmpty()) {
+                sb.append("المعطيات:\n")
+                cleanedGivens.forEach { sb.append("$it\n") }
+                sb.append("\n")
+            }
+            if (cleanedLaws.isNotEmpty()) {
+                sb.append("القانون:\n")
+                cleanedLaws.forEach { sb.append("$it\n") }
+                sb.append("\n")
+            }
+            if (cleanedSubst.isNotEmpty()) {
+                sb.append("التعويض:\n")
+                cleanedSubst.forEach { sb.append("$it\n") }
+                sb.append("\n")
+            }
+            if (cleanedCalcs.isNotEmpty()) {
+                sb.append("الحساب:\n")
+                cleanedCalcs.forEach { sb.append("$it\n") }
+                sb.append("\n")
+            }
+            if (item.finalAnswer.isNotBlank()) {
+                sb.append("الإجابة:\n${MathFormatter.cleanItem(item.finalAnswer)}\n")
+            }
+        } else {
+            // Multi-question exam sheet format (e.g. 20 questions)
+            // 1. Givens (المعطيات)
+            if (cleanedGivens.isNotEmpty()) {
+                sb.append("المعطيات: ${cleanedGivens.joinToString(" ، ")}\n")
+            }
+
+            // 2. The Answer
             when (item.questionType) {
                 "MULTIPLE_CHOICE" -> {
-                    sb.appendLine("• الإجابة الصحيحة: ${item.selectedOptionLabel} ${item.selectedOptionText ?: ""}")
-                }
-                "TRUE_FALSE" -> {
-                    val status = if (item.isTrue == true) "✓ صــواب" else "✗ خــطـأ"
-                    sb.appendLine("• الحكم: $status")
-                    if (item.correction?.isNotBlank() == true) {
-                        sb.appendLine("• التصحيح: ${item.correction}")
+                    val label = MathFormatter.formatOptionLabel(item.selectedOptionLabel)
+                    val text = MathFormatter.cleanItem(item.selectedOptionText ?: item.finalAnswer)
+                    if (label.isNotBlank()) {
+                        sb.append("الإجابة الصحيحة: $label\n")
+                    }
+                    if (text.isNotBlank()) {
+                        sb.append("نص الاختيار: $text\n")
                     }
                 }
-                else -> {
-                    sb.appendLine("• الناتج النهائي: ${item.finalAnswer}")
+                "TRUE_FALSE" -> {
+                    if (item.isTrue == true) {
+                        sb.append("الإجابة: صح ✅\n")
+                    } else if (item.isTrue == false) {
+                        sb.append("الإجابة: خطأ ❌\n")
+                        if (!item.correction.isNullOrBlank()) {
+                            sb.append("التصحيح: ${MathFormatter.cleanMathText(item.correction)}\n")
+                        }
+                    } else {
+                        sb.append("الإجابة: ${MathFormatter.cleanItem(item.finalAnswer)}\n")
+                    }
+                }
+                else -> { // CALCULATION or default
+                    if (item.finalAnswer.isNotBlank()) {
+                        val cleanAns = MathFormatter.cleanItem(item.finalAnswer)
+                        sb.append("الناتج النهائي: $cleanAns\n")
+                    }
                 }
             }
-            if (item.calculationSteps.isNotEmpty()) {
-                sb.appendLine("• خطوات التوضيح: " + item.calculationSteps.joinToString(" ⟵ "))
+
+            // 3. Detailed steps if available
+            val hasExplanation = cleanedLaws.isNotEmpty() || cleanedSubst.isNotEmpty() || cleanedCalcs.isNotEmpty()
+            if (hasExplanation) {
+                sb.append("خطوات الحل والتعليل:\n")
+                if (cleanedLaws.isNotEmpty()) {
+                    sb.append("• القانون: ${cleanedLaws.joinToString(" ، ")}\n")
+                }
+                if (cleanedSubst.isNotEmpty()) {
+                    sb.append("• التعويض: ${cleanedSubst.joinToString(" ، ")}\n")
+                }
+                if (cleanedCalcs.isNotEmpty()) {
+                    sb.append("• الحساب: ${cleanedCalcs.joinToString(" ، ")}\n")
+                }
             }
-            sb.appendLine("────────────────────────────────────────\n")
         }
-        return sb.toString()
+
+        if (index < qItems.size - 1) {
+            sb.append("\n------------------------------------\n\n")
+        }
     }
 
-    val item = allItems.firstOrNull()
-    sb.appendLine("🇾🇪 الحل النموذجي بالخطوات الوزارية (مادة $subject)")
-    sb.appendLine("════════════════════════════════════════")
-    if (questionUnderstanding.isNotBlank()) {
-        sb.appendLine("📌 فهم السؤال: $questionUnderstanding\n")
-    }
-    if (givens.isNotEmpty()) {
-        sb.appendLine("📋 المعطيات:")
-        givens.forEach { sb.appendLine("  • $it") }
-        sb.appendLine()
-    }
-    if (required.isNotBlank()) {
-        sb.appendLine("🎯 المطلوب: $required\n")
-    }
-    if (laws.isNotEmpty()) {
-        sb.appendLine("📐 القوانين المطبقة:")
-        laws.forEach { sb.appendLine("  • $it") }
-        sb.appendLine()
-    }
-    if (substitutionSteps.isNotEmpty()) {
-        sb.appendLine("🔢 خطوات التعويض:")
-        substitutionSteps.forEach { sb.appendLine("  • $it") }
-        sb.appendLine()
-    }
-    if (calculationSteps.isNotEmpty()) {
-        sb.appendLine("✍️ العمليات الحسابية:")
-        calculationSteps.forEach { sb.appendLine("  • $it") }
-        sb.appendLine()
-    }
-    if (finalAnswer.isNotBlank()) {
-        sb.appendLine("🏁 الناتج النهائي: $finalAnswer\n")
-    }
-    if (item?.selectedOptionLabel?.isNotBlank() == true) {
-        sb.appendLine("🔘 الاختيار الصحيح: ${item.selectedOptionLabel}\n")
-    }
-    if (easierExplanation.isNotBlank()) {
-        sb.appendLine("💡 تبسيط الفكرة: $easierExplanation\n")
-    }
-    return sb.toString()
+    return MathFormatter.cleanMathText(sb.toString()).trim()
 }

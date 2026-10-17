@@ -3,7 +3,8 @@ package com.example.data.remote
 data class AttachedFile(
     val fileName: String,
     val mimeType: String,
-    val base64Data: String
+    val base64Data: String,
+    val sizeBytes: Long = 0L
 )
 
 data class GeminiPart(

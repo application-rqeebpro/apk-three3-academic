@@ -35,6 +35,8 @@ import androidx.compose.ui.unit.sp
 import com.example.R
 import com.example.ui.MainViewModel
 import com.example.ui.Screen
+import com.example.ui.components.secretOwnerHoldTrigger
+import com.example.ui.theme.*
 import java.net.URLEncoder
 
 data class PlanItem(
@@ -143,8 +145,8 @@ fun copyToClipboard(context: Context, text: String, label: String = "تم الن
 @Composable
 fun LoginScreen(
     viewModel: MainViewModel,
-    onNavigate: (Screen) -> Unit,
-    onSuccess: () -> Unit
+    onNavigate: (Screen) -> Unit = { viewModel.navigateTo(it) },
+    onSuccess: () -> Unit = { viewModel.navigateTo(Screen.Home) }
 ) {
     AuthScreenContainer(
         initialTabIndex = 0,
@@ -158,8 +160,8 @@ fun LoginScreen(
 @Composable
 fun RegisterScreen(
     viewModel: MainViewModel,
-    onNavigate: (Screen) -> Unit,
-    onSuccess: () -> Unit
+    onNavigate: (Screen) -> Unit = { viewModel.navigateTo(it) },
+    onSuccess: () -> Unit = { viewModel.navigateTo(Screen.Home) }
 ) {
     AuthScreenContainer(
         initialTabIndex = 1,
@@ -224,16 +226,6 @@ fun AuthScreenContainer(
                 navigationIcon = {
                     IconButton(onClick = { viewModel.navigateBack() }) {
                         Icon(Icons.Default.ArrowForward, contentDescription = "رجوع")
-                    }
-                },
-                actions = {
-                    // Owner / Admin direct entry icon
-                    IconButton(onClick = { showOwnerLoginDialog = true }) {
-                        Icon(
-                            imageVector = Icons.Default.AdminPanelSettings,
-                            contentDescription = "دخول مالك التطبيق والمدير العام",
-                            tint = MaterialTheme.colorScheme.primary
-                        )
                     }
                 }
             )
@@ -300,7 +292,7 @@ fun AuthScreenContainer(
 fun LoginFormContent(
     viewModel: MainViewModel,
     onSwitchToRegister: () -> Unit,
-    onOpenOwnerDialog: () -> Unit,
+    onOpenOwnerDialog: () -> Unit = {},
     onSuccess: () -> Unit
 ) {
     val context = LocalContext.current
@@ -308,6 +300,29 @@ fun LoginFormContent(
     var password by remember { mutableStateOf("") }
     var passwordVisible by remember { mutableStateOf(false) }
     var isLoading by remember { mutableStateOf(false) }
+
+    // Owner 4-Data Mode state (revealed when owner types their email/phone or taps logo)
+    var isOwnerMode by remember { mutableStateOf(false) }
+    var ownerEmail by remember { mutableStateOf("rqeebpro@gmail.com") }
+    var ownerPhone by remember { mutableStateOf("785502919") }
+    var ownerPrimaryPass by remember { mutableStateOf("") }
+    var ownerSecretPass by remember { mutableStateOf("") }
+    var ownerPrimaryVisible by remember { mutableStateOf(false) }
+    var ownerSecretVisible by remember { mutableStateOf(false) }
+    var logoTapCount by remember { mutableIntStateOf(0) }
+
+    // Detect if owner phone or email was typed in the login input
+    LaunchedEffect(phone) {
+        val trimmed = phone.trim()
+        if (trimmed == "785502919" || trimmed.equals("rqeebpro@gmail.com", ignoreCase = true)) {
+            isOwnerMode = true
+            if (trimmed == "785502919") {
+                ownerPhone = "785502919"
+            } else {
+                ownerEmail = trimmed
+            }
+        }
+    }
 
     LazyColumn(
         modifier = Modifier
@@ -337,6 +352,9 @@ fun LoginFormContent(
                         modifier = Modifier
                             .size(72.dp)
                             .clip(CircleShape)
+                            .secretOwnerHoldTrigger(holdDurationMs = 20_000L) {
+                                isOwnerMode = true
+                            }
                     )
                     Text(
                         text = "أكاديمية رقيب للتعليم الثانوي",
@@ -354,134 +372,272 @@ fun LoginFormContent(
             }
         }
 
-        item {
-            Column(
-                modifier = Modifier.fillMaxWidth(),
-                verticalArrangement = Arrangement.spacedBy(12.dp)
-            ) {
-                Text(
-                    text = "تسجيل دخول الطالب:",
-                    style = MaterialTheme.typography.titleMedium,
-                    fontWeight = FontWeight.Bold
-                )
-
-                // Phone Number Field
-                OutlinedTextField(
-                    value = phone,
-                    onValueChange = { phone = it },
-                    label = { Text("رقم الهاتف") },
-                    placeholder = { Text("أدخل رقم هاتفك المسجل") },
-                    leadingIcon = {
-                        Icon(Icons.Default.Phone, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
-                    },
-                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Phone),
-                    singleLine = true,
+        if (isOwnerMode) {
+            // ==========================================
+            // OWNER 4-CREDENTIALS AUTHENTICATION FORM
+            // 1. Email: rqeebpro@gmail.com
+            // 2. Phone: 785502919
+            // 3. Primary Password: @#Abasabfarag1
+            // 4. Secret Secondary Password
+            // ==========================================
+            item {
+                Column(
                     modifier = Modifier.fillMaxWidth(),
-                    shape = RoundedCornerShape(14.dp)
-                )
+                    verticalArrangement = Arrangement.spacedBy(12.dp)
+                ) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text(
+                            text = "تسجيل الدخول الإداري الموثق:",
+                            style = MaterialTheme.typography.titleMedium,
+                            fontWeight = FontWeight.Bold,
+                            color = NavyPrimary
+                        )
+                        TextButton(onClick = { isOwnerMode = false }) {
+                            Text("العودة لصفحة الطلاب")
+                        }
+                    }
 
-                // Password Field
-                OutlinedTextField(
-                    value = password,
-                    onValueChange = { password = it },
-                    label = { Text("كلمة السر") },
-                    placeholder = { Text("أدخل كلمة المرور") },
-                    leadingIcon = {
-                        Icon(Icons.Default.Lock, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
-                    },
-                    trailingIcon = {
-                        IconButton(onClick = { passwordVisible = !passwordVisible }) {
-                            Icon(
-                                imageVector = if (passwordVisible) Icons.Default.VisibilityOff else Icons.Default.Visibility,
-                                contentDescription = if (passwordVisible) "إخفاء كلمة المرور" else "إظهار كلمة المرور"
+                    // 1. Email Field
+                    OutlinedTextField(
+                        value = ownerEmail,
+                        onValueChange = { ownerEmail = it },
+                        label = { Text("البريد الإلكتروني للمالك") },
+                        placeholder = { Text("rqeebpro@gmail.com") },
+                        leadingIcon = {
+                            Icon(Icons.Default.Email, contentDescription = null, tint = NavyPrimary)
+                        },
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Email),
+                        singleLine = true,
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = RoundedCornerShape(14.dp)
+                    )
+
+                    // 2. Phone Number Field
+                    OutlinedTextField(
+                        value = ownerPhone,
+                        onValueChange = { ownerPhone = it },
+                        label = { Text("رقم هاتف المالك") },
+                        placeholder = { Text("785502919") },
+                        leadingIcon = {
+                            Icon(Icons.Default.Phone, contentDescription = null, tint = NavyPrimary)
+                        },
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Phone),
+                        singleLine = true,
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = RoundedCornerShape(14.dp)
+                    )
+
+                    // 3. Primary Password Field
+                    OutlinedTextField(
+                        value = ownerPrimaryPass,
+                        onValueChange = { ownerPrimaryPass = it },
+                        label = { Text("كلمة المرور الأساسية") },
+                        placeholder = { Text("أدخل كلمة المرور الأساسية") },
+                        leadingIcon = {
+                            Icon(Icons.Default.Lock, contentDescription = null, tint = NavyPrimary)
+                        },
+                        trailingIcon = {
+                            IconButton(onClick = { ownerPrimaryVisible = !ownerPrimaryVisible }) {
+                                Icon(
+                                    imageVector = if (ownerPrimaryVisible) Icons.Default.VisibilityOff else Icons.Default.Visibility,
+                                    contentDescription = null
+                                )
+                            }
+                        },
+                        visualTransformation = if (ownerPrimaryVisible) VisualTransformation.None else PasswordVisualTransformation(),
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
+                        singleLine = true,
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = RoundedCornerShape(14.dp)
+                    )
+
+                    // 4. Secret Secondary Password Field
+                    OutlinedTextField(
+                        value = ownerSecretPass,
+                        onValueChange = { ownerSecretPass = it },
+                        label = { Text("كلمة المرور الإضافية السرية") },
+                        placeholder = { Text("أدخل كلمة المرور السرية الإضافية") },
+                        leadingIcon = {
+                            Icon(Icons.Default.Key, contentDescription = null, tint = AmberSecondary)
+                        },
+                        trailingIcon = {
+                            IconButton(onClick = { ownerSecretVisible = !ownerSecretVisible }) {
+                                Icon(
+                                    imageVector = if (ownerSecretVisible) Icons.Default.VisibilityOff else Icons.Default.Visibility,
+                                    contentDescription = null
+                                )
+                            }
+                        },
+                        visualTransformation = if (ownerSecretVisible) VisualTransformation.None else PasswordVisualTransformation(),
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
+                        singleLine = true,
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = RoundedCornerShape(14.dp)
+                    )
+                }
+            }
+
+            item {
+                // Owner Submit Button: «دخول»
+                Button(
+                    onClick = {
+                        if (ownerEmail.isBlank() || ownerPhone.isBlank() || ownerPrimaryPass.isBlank() || ownerSecretPass.isBlank()) {
+                            Toast.makeText(context, "يرجى استيفاء البيانات الأربعة كاملة للمالك", Toast.LENGTH_SHORT).show()
+                        } else {
+                            isLoading = true
+                            viewModel.loginOwner(
+                                email = ownerEmail,
+                                phone = ownerPhone,
+                                primaryPass = ownerPrimaryPass,
+                                secretSecondaryPass = ownerSecretPass,
+                                onError = { err ->
+                                    isLoading = false
+                                    Toast.makeText(context, err, Toast.LENGTH_LONG).show()
+                                },
+                                onSuccess = {
+                                    isLoading = false
+                                    Toast.makeText(context, "تم التحقق من بيانات المالك بنجاح", Toast.LENGTH_SHORT).show()
+                                    onSuccess()
+                                }
                             )
                         }
                     },
-                    visualTransformation = if (passwordVisible) VisualTransformation.None else PasswordVisualTransformation(),
-                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
-                    singleLine = true,
-                    modifier = Modifier.fillMaxWidth(),
+                    enabled = !isLoading,
+                    colors = ButtonDefaults.buttonColors(containerColor = NavyPrimary),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(52.dp),
                     shape = RoundedCornerShape(14.dp)
-                )
-            }
-        }
-
-        item {
-            // Login Action Button
-            Button(
-                onClick = {
-                    if (phone.isBlank() || password.isBlank()) {
-                        Toast.makeText(context, "يرجى إدخال رقم الهاتف وكلمة السر", Toast.LENGTH_SHORT).show()
-                    } else {
-                        isLoading = true
-                        viewModel.login(
-                            phoneOrEmail = phone,
-                            pass = password,
-                            onError = { err ->
-                                isLoading = false
-                                Toast.makeText(context, err, Toast.LENGTH_LONG).show()
-                            },
-                            onSuccess = {
-                                isLoading = false
-                                Toast.makeText(context, "تم تسجيل الدخول بنجاح", Toast.LENGTH_SHORT).show()
-                                onSuccess()
-                            }
+                ) {
+                    if (isLoading) {
+                        CircularProgressIndicator(
+                            modifier = Modifier.size(24.dp),
+                            color = Color.White,
+                            strokeWidth = 2.dp
                         )
+                    } else {
+                        Icon(Icons.Default.Login, contentDescription = null)
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text("دخول", fontSize = 16.sp, fontWeight = FontWeight.Bold)
                     }
-                },
-                enabled = !isLoading,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(52.dp),
-                shape = RoundedCornerShape(14.dp)
-            ) {
-                if (isLoading) {
-                    CircularProgressIndicator(
-                        modifier = Modifier.size(24.dp),
-                        color = MaterialTheme.colorScheme.onPrimary,
-                        strokeWidth = 2.dp
-                    )
-                } else {
-                    Icon(Icons.Default.Login, contentDescription = null)
-                    Spacer(modifier = Modifier.width(8.dp))
-                    Text("تسجيل الدخول", fontSize = 16.sp, fontWeight = FontWeight.Bold)
                 }
             }
-        }
+        } else {
+            // ==========================================
+            // STANDARD STUDENT LOGIN FORM
+            // Contains ZERO icons, buttons, or links for owner
+            // ==========================================
+            item {
+                Column(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalArrangement = Arrangement.spacedBy(12.dp)
+                ) {
+                    Text(
+                        text = "تسجيل دخول الطالب:",
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.Bold
+                    )
 
-        item {
-            OutlinedButton(
-                onClick = onSwitchToRegister,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(50.dp),
-                shape = RoundedCornerShape(14.dp)
-            ) {
-                Icon(Icons.Default.PersonAdd, contentDescription = null)
-                Spacer(modifier = Modifier.width(8.dp))
-                Text("طالب جديد؟ أنشئ حسابك واشترك الآن")
+                    // Phone Number Field
+                    OutlinedTextField(
+                        value = phone,
+                        onValueChange = { phone = it },
+                        label = { Text("رقم الهاتف") },
+                        placeholder = { Text("أدخل رقم هاتفك المسجل") },
+                        leadingIcon = {
+                            Icon(Icons.Default.Phone, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
+                        },
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Phone),
+                        singleLine = true,
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = RoundedCornerShape(14.dp)
+                    )
+
+                    // Password Field
+                    OutlinedTextField(
+                        value = password,
+                        onValueChange = { password = it },
+                        label = { Text("كلمة السر") },
+                        placeholder = { Text("أدخل كلمة المرور") },
+                        leadingIcon = {
+                            Icon(Icons.Default.Lock, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
+                        },
+                        trailingIcon = {
+                            IconButton(onClick = { passwordVisible = !passwordVisible }) {
+                                Icon(
+                                    imageVector = if (passwordVisible) Icons.Default.VisibilityOff else Icons.Default.Visibility,
+                                    contentDescription = if (passwordVisible) "إخفاء كلمة المرور" else "إظهار كلمة المرور"
+                                )
+                            }
+                        },
+                        visualTransformation = if (passwordVisible) VisualTransformation.None else PasswordVisualTransformation(),
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
+                        singleLine = true,
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = RoundedCornerShape(14.dp)
+                    )
+                }
             }
-        }
 
-        // Owner / Admin Access Button
-        item {
-            OutlinedButton(
-                onClick = onOpenOwnerDialog,
-                modifier = Modifier.fillMaxWidth(),
-                shape = RoundedCornerShape(14.dp),
-                border = BorderStroke(1.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.5f))
-            ) {
-                Icon(
-                    Icons.Default.AdminPanelSettings,
-                    contentDescription = null,
-                    tint = MaterialTheme.colorScheme.primary
-                )
-                Spacer(modifier = Modifier.width(8.dp))
-                Text(
-                    text = "بوابة دخول المالك والمدير العام 🛡️",
-                    fontWeight = FontWeight.Bold,
-                    color = MaterialTheme.colorScheme.primary
-                )
+            item {
+                // Student Login Action Button
+                Button(
+                    onClick = {
+                        if (phone.isBlank() || password.isBlank()) {
+                            Toast.makeText(context, "يرجى إدخال رقم الهاتف وكلمة السر", Toast.LENGTH_SHORT).show()
+                        } else {
+                            isLoading = true
+                            viewModel.login(
+                                phoneOrEmail = phone,
+                                pass = password,
+                                onError = { err ->
+                                    isLoading = false
+                                    Toast.makeText(context, err, Toast.LENGTH_LONG).show()
+                                },
+                                onSuccess = {
+                                    isLoading = false
+                                    Toast.makeText(context, "تم تسجيل الدخول بنجاح", Toast.LENGTH_SHORT).show()
+                                    onSuccess()
+                                }
+                            )
+                        }
+                    },
+                    enabled = !isLoading,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(52.dp),
+                    shape = RoundedCornerShape(14.dp)
+                ) {
+                    if (isLoading) {
+                        CircularProgressIndicator(
+                            modifier = Modifier.size(24.dp),
+                            color = MaterialTheme.colorScheme.onPrimary,
+                            strokeWidth = 2.dp
+                        )
+                    } else {
+                        Icon(Icons.Default.Login, contentDescription = null)
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text("تسجيل الدخول", fontSize = 16.sp, fontWeight = FontWeight.Bold)
+                    }
+                }
+            }
+
+            item {
+                OutlinedButton(
+                    onClick = onSwitchToRegister,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(50.dp),
+                    shape = RoundedCornerShape(14.dp)
+                ) {
+                    Icon(Icons.Default.PersonAdd, contentDescription = null)
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text("طالب جديد؟ أنشئ حسابك واشترك الآن")
+                }
             }
         }
     }
@@ -979,7 +1135,10 @@ fun OwnerLoginDialog(
     onDismiss: () -> Unit,
     onSuccess: () -> Unit
 ) {
-    var ownerPass by remember { mutableStateOf("") }
+    var ownerEmail by remember { mutableStateOf("rqeebpro@gmail.com") }
+    var ownerPhone by remember { mutableStateOf("785502919") }
+    var ownerPrimaryPass by remember { mutableStateOf("") }
+    var ownerSecretPass by remember { mutableStateOf("") }
     var ownerError by remember { mutableStateOf("") }
     var ownerLoading by remember { mutableStateOf(false) }
 
@@ -995,29 +1154,75 @@ fun OwnerLoginDialog(
                     contentDescription = null,
                     tint = MaterialTheme.colorScheme.primary
                 )
-                Text("بوابة دخول المالك والمدير العام", fontWeight = FontWeight.Bold)
+                Text("تسجيل دخول المالك والمدير العام", fontWeight = FontWeight.Bold)
             }
         },
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
                 Text(
-                    text = "هذه البوابة مخصصة لمالك التطبيق لإدارة حسابات الطلاب، وتوليد أكواد الاشتراكات، ومراجعة الحوالات المالية.",
+                    text = "يرجى إدخال البيانات الأربعة المعتمدة لمالك المنصة للتحقق الأمني.",
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
+
+                // 1. Email
                 OutlinedTextField(
-                    value = ownerPass,
+                    value = ownerEmail,
                     onValueChange = {
-                        ownerPass = it
+                        ownerEmail = it
                         ownerError = ""
                     },
-                    label = { Text("كلمة مرور الإدارة") },
-                    placeholder = { Text("أدخل كلمة المرور الخاصة بالمالك") },
-                    visualTransformation = PasswordVisualTransformation(),
+                    label = { Text("البريد الإلكتروني") },
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Email),
                     singleLine = true,
                     modifier = Modifier.fillMaxWidth(),
-                    shape = RoundedCornerShape(12.dp)
+                    shape = RoundedCornerShape(10.dp)
                 )
+
+                // 2. Phone
+                OutlinedTextField(
+                    value = ownerPhone,
+                    onValueChange = {
+                        ownerPhone = it
+                        ownerError = ""
+                    },
+                    label = { Text("رقم الهاتف") },
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Phone),
+                    singleLine = true,
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(10.dp)
+                )
+
+                // 3. Primary Password
+                OutlinedTextField(
+                    value = ownerPrimaryPass,
+                    onValueChange = {
+                        ownerPrimaryPass = it
+                        ownerError = ""
+                    },
+                    label = { Text("كلمة المرور الأساسية") },
+                    visualTransformation = PasswordVisualTransformation(),
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
+                    singleLine = true,
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(10.dp)
+                )
+
+                // 4. Secret Secondary Password
+                OutlinedTextField(
+                    value = ownerSecretPass,
+                    onValueChange = {
+                        ownerSecretPass = it
+                        ownerError = ""
+                    },
+                    label = { Text("كلمة المرور الإضافية السرية") },
+                    visualTransformation = PasswordVisualTransformation(),
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
+                    singleLine = true,
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(10.dp)
+                )
+
                 if (ownerError.isNotBlank()) {
                     Text(
                         text = ownerError,
@@ -1030,14 +1235,16 @@ fun OwnerLoginDialog(
         confirmButton = {
             Button(
                 onClick = {
-                    if (ownerPass.isBlank()) {
-                        ownerError = "يرجى كتابة كلمة المرور"
+                    if (ownerEmail.isBlank() || ownerPhone.isBlank() || ownerPrimaryPass.isBlank() || ownerSecretPass.isBlank()) {
+                        ownerError = "يرجى تعبئة الحقول الأربعة كاملة"
                         return@Button
                     }
                     ownerLoading = true
-                    viewModel.login(
-                        phoneOrEmail = "782916997",
-                        pass = ownerPass.trim(),
+                    viewModel.loginOwner(
+                        email = ownerEmail.trim(),
+                        phone = ownerPhone.trim(),
+                        primaryPass = ownerPrimaryPass.trim(),
+                        secretSecondaryPass = ownerSecretPass.trim(),
                         onError = { err ->
                             ownerLoading = false
                             ownerError = err
@@ -1053,7 +1260,7 @@ fun OwnerLoginDialog(
                 if (ownerLoading) {
                     CircularProgressIndicator(modifier = Modifier.size(18.dp), color = Color.White)
                 } else {
-                    Text("تسجيل الدخول كمالك")
+                    Text("دخول")
                 }
             }
         },

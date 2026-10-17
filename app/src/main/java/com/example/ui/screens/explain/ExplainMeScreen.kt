@@ -19,7 +19,8 @@ import com.example.ui.MainViewModel
 @Composable
 fun ExplainMeScreen(
     viewModel: MainViewModel,
-    onBack: () -> Unit
+    modifier: Modifier = Modifier,
+    onBack: () -> Unit = { viewModel.navigateBack() }
 ) {
     val selectedLesson by viewModel.selectedLesson.collectAsState()
     val explanationText by viewModel.simplerExplanationText.collectAsState()
@@ -29,26 +30,13 @@ fun ExplainMeScreen(
     val subjects = listOf("الرياضيات", "الكيمياء", "الفيزياء", "الأحياء")
     var selectedSubject by remember { mutableStateOf("الرياضيات") }
 
-    Scaffold(
-        topBar = {
-            TopAppBar(
-                title = { Text("اشرح لي الدرس بأسلوب مبسط") },
-                navigationIcon = {
-                    IconButton(onClick = onBack) {
-                        Icon(Icons.Default.ArrowForward, contentDescription = "رجوع")
-                    }
-                }
-            )
-        }
-    ) { padding ->
-        LazyColumn(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(padding)
-                .padding(horizontal = 16.dp),
-            verticalArrangement = Arrangement.spacedBy(14.dp),
-            contentPadding = PaddingValues(top = 8.dp, bottom = 32.dp)
-        ) {
+    LazyColumn(
+        modifier = modifier
+            .fillMaxSize()
+            .padding(horizontal = 14.dp, vertical = 6.dp),
+        verticalArrangement = Arrangement.spacedBy(10.dp),
+        contentPadding = PaddingValues(bottom = 24.dp)
+    ) {
             item {
                 Card(
                     modifier = Modifier.fillMaxWidth(),
@@ -146,7 +134,7 @@ fun ExplainMeScreen(
                 }
             }
 
-            if (explanationText.isNotBlank()) {
+            if (!explanationText.isNullOrBlank()) {
                 item {
                     Card(
                         modifier = Modifier.fillMaxWidth(),
@@ -164,11 +152,10 @@ fun ExplainMeScreen(
                             }
                             Divider()
                             Text(
-                                text = explanationText,
+                                text = explanationText ?: "",
                                 style = MaterialTheme.typography.bodyMedium,
                                 lineHeight = 24.sp
                             )
-                        }
                     }
                 }
             }

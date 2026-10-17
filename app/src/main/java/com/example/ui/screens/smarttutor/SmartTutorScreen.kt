@@ -51,7 +51,7 @@ import java.util.Locale
 @Composable
 fun SmartTutorScreen(
     viewModel: MainViewModel,
-    onBack: () -> Unit
+    onBack: () -> Unit = { viewModel.navigateBack() }
 ) {
     val context = LocalContext.current
     val messages by viewModel.chatMessages.collectAsState()
@@ -153,35 +153,6 @@ fun SmartTutorScreen(
     )
 
     Scaffold(
-        topBar = {
-            TopAppBar(
-                title = {
-                    Column {
-                        Text(
-                            text = "اسأل أستاذي الذكي 👨‍🏫",
-                            fontWeight = FontWeight.Bold,
-                            fontSize = 18.sp
-                        )
-                        Text(
-                            text = "مساعد تفاعلي: نصوص • فيديوهات • صور • ملفات PDF",
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.primary,
-                            fontSize = 11.sp
-                        )
-                    }
-                },
-                navigationIcon = {
-                    IconButton(onClick = onBack) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowForward, contentDescription = "رجوع")
-                    }
-                },
-                actions = {
-                    IconButton(onClick = { viewModel.clearTutorChat() }) {
-                        Icon(Icons.Default.DeleteSweep, contentDescription = "مسح المحادثة", tint = MaterialTheme.colorScheme.error)
-                    }
-                }
-            )
-        },
         bottomBar = {
             Surface(
                 tonalElevation = 6.dp,
@@ -426,48 +397,50 @@ fun SmartTutorScreen(
             verticalArrangement = Arrangement.spacedBy(14.dp),
             contentPadding = PaddingValues(vertical = 12.dp)
         ) {
-            // Enhanced Header Card
-            item {
-                Card(
-                    modifier = Modifier.fillMaxWidth(),
-                    shape = RoundedCornerShape(20.dp),
-                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.6f)),
-                    border = BorderStroke(1.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.2f))
-                ) {
-                    Column(
-                        modifier = Modifier.padding(16.dp),
-                        verticalArrangement = Arrangement.spacedBy(10.dp)
+            // Enhanced Header Card (Shown on empty conversation)
+            if (messages.isEmpty()) {
+                item {
+                    Card(
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = RoundedCornerShape(16.dp),
+                        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.6f)),
+                        border = BorderStroke(1.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.2f))
                     ) {
-                        Row(
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.spacedBy(10.dp)
+                        Column(
+                            modifier = Modifier.padding(14.dp),
+                            verticalArrangement = Arrangement.spacedBy(8.dp)
                         ) {
-                            Box(
-                                modifier = Modifier
-                                    .size(42.dp)
-                                    .clip(CircleShape)
-                                    .background(MaterialTheme.colorScheme.primary),
-                                contentAlignment = Alignment.Center
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(10.dp)
                             ) {
-                                Icon(Icons.Default.School, contentDescription = null, tint = Color.White, modifier = Modifier.size(24.dp))
+                                Box(
+                                    modifier = Modifier
+                                        .size(38.dp)
+                                        .clip(CircleShape)
+                                        .background(MaterialTheme.colorScheme.primary),
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    Icon(Icons.Default.School, contentDescription = null, tint = Color.White, modifier = Modifier.size(20.dp))
+                                }
+                                Column {
+                                    Text("اسأل أستاذي الذكي 👨‍🏫 (المنهج اليمني)", fontWeight = FontWeight.Bold, style = MaterialTheme.typography.titleMedium)
+                                    Text("اطرح أي مسألة أو التقط صورة بالكاميرا وستحصل على الشرح بـ 4 أنماط", style = MaterialTheme.typography.bodySmall, color = Color.Gray)
+                                }
                             }
-                            Column {
-                                Text("اسأل أستاذي الذكي 👨‍🏫 (المنهج اليمني)", fontWeight = FontWeight.Bold, style = MaterialTheme.typography.titleMedium)
-                                Text("اطرح أي مسألة أو التقط صورة بالكاميرا وستحصل على الشرح بـ 4 أنماط", style = MaterialTheme.typography.bodySmall, color = Color.Gray)
+
+                            Divider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f))
+
+                            // Features Icons Row (PDF, Video, Text, Image)
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.SpaceAround
+                            ) {
+                                FeatureIconPill(icon = Icons.Default.Description, label = "نص وشرح", color = Color(0xFF2563EB))
+                                FeatureIconPill(icon = Icons.Default.PlayCircle, label = "فيديو تعليمي", color = Color(0xFFDC2626))
+                                FeatureIconPill(icon = Icons.Default.Draw, label = "رسم ولوحة", color = Color(0xFF0284C7))
+                                FeatureIconPill(icon = Icons.Default.PictureAsPdf, label = "ملف PDF", color = Color(0xFF16A34A))
                             }
-                        }
-
-                        Divider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f))
-
-                        // Features Icons Row (PDF, Video, Text, Image)
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.SpaceAround
-                        ) {
-                            FeatureIconPill(icon = Icons.Default.Description, label = "نص وشرح", color = Color(0xFF2563EB))
-                            FeatureIconPill(icon = Icons.Default.PlayCircle, label = "فيديو تعليمي", color = Color(0xFFDC2626))
-                            FeatureIconPill(icon = Icons.Default.Draw, label = "رسم ولوحة", color = Color(0xFF0284C7))
-                            FeatureIconPill(icon = Icons.Default.PictureAsPdf, label = "ملف PDF", color = Color(0xFF16A34A))
                         }
                     }
                 }
@@ -964,7 +937,7 @@ fun EnhancedTeacherChatBubble(
                                 )
                             }
                             Spacer(modifier = Modifier.height(4.dp))
-                            message.formulas.forEach { f ->
+                            for (f in message.formulas) {
                                 Text("• $f", fontSize = 12.sp, color = Color(0xFF78350F), fontWeight = FontWeight.SemiBold)
                             }
                         }
@@ -990,7 +963,7 @@ fun EnhancedTeacherChatBubble(
                                 )
                             }
                             Spacer(modifier = Modifier.height(4.dp))
-                            message.keyPoints.forEach { kp ->
+                            for (kp in message.keyPoints) {
                                 Text("• $kp", fontSize = 12.sp, color = Color(0xFF166534))
                             }
                         }

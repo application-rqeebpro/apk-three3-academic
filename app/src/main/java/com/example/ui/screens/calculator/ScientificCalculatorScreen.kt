@@ -26,7 +26,8 @@ import com.example.ui.MainViewModel
 @Composable
 fun ScientificCalculatorScreen(
     viewModel: MainViewModel,
-    onBack: () -> Unit
+    modifier: Modifier = Modifier,
+    onBack: () -> Unit = { viewModel.navigateBack() }
 ) {
     var displayExpression by remember { mutableStateOf("") }
     var resultText by remember { mutableStateOf("0") }
@@ -43,25 +44,12 @@ fun ScientificCalculatorScreen(
         "0", ".", "DEL", "="
     )
 
-    Scaffold(
-        topBar = {
-            TopAppBar(
-                title = { Text("الآلة الحاسبة العلمية (الصف الثالث الثانوي)") },
-                navigationIcon = {
-                    IconButton(onClick = onBack) {
-                        Icon(Icons.Default.ArrowForward, contentDescription = "رجوع")
-                    }
-                }
-            )
-        }
-    ) { padding ->
-        Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(padding)
-                .padding(16.dp),
-            verticalArrangement = Arrangement.spacedBy(12.dp)
-        ) {
+    Column(
+        modifier = modifier
+            .fillMaxSize()
+            .padding(horizontal = 12.dp, vertical = 6.dp),
+        verticalArrangement = Arrangement.spacedBy(8.dp)
+    ) {
             TabRow(selectedTabIndex = selectedTab) {
                 tabs.forEachIndexed { index, title ->
                     Tab(
@@ -204,7 +192,6 @@ fun ScientificCalculatorScreen(
                         Text("قاعدة كرامر لحل نظم المعادلات الخطية الوزارية")
                         Text("محدد المصفوفة |A| ومصفوفة المعكوس A⁻¹ بخطوات وزارية كاملة")
                     }
-                }
             }
         }
     }

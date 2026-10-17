@@ -31,7 +31,8 @@ object MathFormatter {
         return list.map { cleanMathText(it) }.filter { it.isNotBlank() }
     }
 
-    fun formatOptionLabel(label: String): String {
+    fun formatOptionLabel(label: String?): String {
+        if (label.isNullOrBlank()) return ""
         var clean = cleanMathText(label).trim()
         if (clean.contains("1") || clean.contains("①") || clean.contains("أ") || clean.contains("A")) {
             return "الاختيار ①"

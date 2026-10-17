@@ -6,11 +6,14 @@ import kotlinx.coroutines.flow.Flow
 
 @Dao
 interface UserDao {
+    @Query("SELECT * FROM users ORDER BY createdAt DESC")
+    fun getAllUsers(): Flow<List<UserEntity>>
+
+    @Query("SELECT * FROM users WHERE id = :id")
+    suspend fun getUserById(id: Long): UserEntity?
+
     @Query("SELECT * FROM users WHERE phoneOrEmail = :query LIMIT 1")
     suspend fun getUserByPhoneOrEmail(query: String): UserEntity?
-
-    @Query("SELECT * FROM users WHERE id = :id LIMIT 1")
-    suspend fun getUserById(id: Long): UserEntity?
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertUser(user: UserEntity): Long
@@ -18,47 +21,197 @@ interface UserDao {
     @Update
     suspend fun updateUser(user: UserEntity)
 
-    @Query("UPDATE users SET passwordHash = :newPasswordHash WHERE id = :userId")
-    suspend fun updatePassword(userId: Long, newPasswordHash: String): Int
+    @Query("DELETE FROM users WHERE id = :id")
+    suspend fun deleteUserById(id: Long)
 
-    @Query("UPDATE users SET isActive = :isActive WHERE id = :userId")
-    suspend fun updateUserActiveStatus(userId: Long, isActive: Boolean): Int
+    @Query("SELECT COUNT(*) FROM users WHERE role = 'STUDENT'")
+    fun getStudentCount(): Flow<Int>
 
-    @Query("SELECT * FROM users WHERE role = 'STUDENT' ORDER BY id DESC")
-    fun getAllStudents(): Flow<List<UserEntity>>
+    @Query("SELECT COUNT(*) FROM users WHERE role = 'STUDENT' AND isActive = 1 AND isBlocked = 0")
+    fun getActiveStudentCount(): Flow<Int>
 
-    @Query("SELECT * FROM users ORDER BY id DESC")
-    fun getAllUsers(): Flow<List<UserEntity>>
+    @Query("UPDATE users SET isBlocked = :isBlocked, blockReason = :reason WHERE id = :id")
+    suspend fun updateBlockStatus(id: Long, isBlocked: Boolean, reason: String?)
+
+    @Query("UPDATE users SET failedCodeAttempts = failedCodeAttempts + 1 WHERE id = :id")
+    suspend fun incrementFailedCodeAttempts(id: Long)
+
+    @Query("UPDATE users SET failedCodeAttempts = 0 WHERE id = :id")
+    suspend fun resetFailedCodeAttempts(id: Long)
+}
+
+@Dao
+interface SubscriptionDao {
+    @Query("SELECT * FROM subscriptions WHERE userId = :userId AND status = 'ACTIVE' AND endDate > :currentTime ORDER BY endDate DESC LIMIT 1")
+    fun getActiveSubscription(userId: Long, currentTime: Long = System.currentTimeMillis()): Flow<SubscriptionEntity?>
+
+    @Query("SELECT * FROM subscriptions WHERE userId = :userId ORDER BY startDate DESC")
+    fun getUserSubscriptions(userId: Long): Flow<List<SubscriptionEntity>>
+
+    @Query("SELECT * FROM subscriptions ORDER BY startDate DESC")
+    fun getAllSubscriptions(): Flow<List<SubscriptionEntity>>
+
+    @Query("SELECT * FROM subscriptions WHERE status = 'ACTIVE' AND endDate > :currentTime")
+    fun getAllActiveSubscriptions(currentTime: Long = System.currentTimeMillis()): Flow<List<SubscriptionEntity>>
+
+    @Query("SELECT * FROM subscriptions WHERE status = 'EXPIRED' OR endDate <= :currentTime")
+    fun getAllExpiredSubscriptions(currentTime: Long = System.currentTimeMillis()): Flow<List<SubscriptionEntity>>
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun insertSubscription(subscription: SubscriptionEntity): Long
+
+    @Update
+    suspend fun updateSubscription(subscription: SubscriptionEntity)
+
+    @Query("SELECT * FROM subscriptions WHERE userId = :userId AND status = 'ACTIVE' AND endDate > :currentTime ORDER BY endDate DESC LIMIT 1")
+    suspend fun getActiveSubscriptionSync(userId: Long, currentTime: Long = System.currentTimeMillis()): SubscriptionEntity?
+}
+
+@Dao
+interface SubscriptionPlanDao {
+    @Query("SELECT * FROM subscription_plans WHERE isActive = 1 ORDER BY durationMonths ASC")
+    fun getActivePlans(): Flow<List<SubscriptionPlanEntity>>
+
+    @Query("SELECT * FROM subscription_plans WHERE id = :id")
+    suspend fun getPlanById(id: Long): SubscriptionPlanEntity?
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun insertPlan(plan: SubscriptionPlanEntity): Long
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun insertPlans(plans: List<SubscriptionPlanEntity>)
+
+    @Update
+    suspend fun updatePlan(plan: SubscriptionPlanEntity)
+}
+
+@Dao
+interface SubscriptionCodeDao {
+    @Query("SELECT * FROM subscription_codes ORDER BY createdAt DESC")
+    fun getAllCodes(): Flow<List<SubscriptionCodeEntity>>
+
+    @Query("SELECT * FROM subscription_codes WHERE code = :code LIMIT 1")
+    suspend fun getCodeByValue(code: String): SubscriptionCodeEntity?
+
+    @Query("SELECT COUNT(*) FROM subscription_codes WHERE status = 'UNUSED'")
+    fun getUnusedCodeCount(): Flow<Int>
+
+    @Query("SELECT COUNT(*) FROM subscription_codes WHERE status = 'USED'")
+    fun getUsedCodeCount(): Flow<Int>
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun insertCode(code: SubscriptionCodeEntity): Long
+
+    @Update
+    suspend fun updateCode(code: SubscriptionCodeEntity)
+}
+
+@Dao
+interface PaymentRequestDao {
+    @Query("SELECT * FROM payment_requests ORDER BY createdAt DESC")
+    fun getAllPaymentRequests(): Flow<List<PaymentRequestEntity>>
+
+    @Query("SELECT * FROM payment_requests WHERE userId = :userId ORDER BY createdAt DESC")
+    fun getPaymentsByUserId(userId: Long): Flow<List<PaymentRequestEntity>>
+
+    @Query("SELECT * FROM payment_requests WHERE status = 'PENDING' ORDER BY createdAt DESC")
+    fun getPendingPayments(): Flow<List<PaymentRequestEntity>>
+
+    @Query("SELECT COUNT(*) FROM payment_requests WHERE status = 'PENDING'")
+    fun getPendingPaymentCount(): Flow<Int>
+
+    @Query("SELECT * FROM payment_requests WHERE id = :id")
+    suspend fun getPaymentById(id: Long): PaymentRequestEntity?
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun insertPayment(payment: PaymentRequestEntity): Long
+
+    @Update
+    suspend fun updatePayment(payment: PaymentRequestEntity)
 }
 
 @Dao
 interface CurriculumDao {
-    @Query("SELECT * FROM subjects ORDER BY id ASC")
+    @Query("SELECT * FROM subjects ORDER BY sortOrder ASC, id ASC")
     fun getAllSubjects(): Flow<List<SubjectEntity>>
+
+    @Query("SELECT * FROM subjects WHERE id = :id")
+    suspend fun getSubjectById(id: Long): SubjectEntity?
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun insertSubject(subject: SubjectEntity): Long
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertSubjects(subjects: List<SubjectEntity>)
 
-    @Query("SELECT * FROM units WHERE subjectId = :subjectId ORDER BY unitNumber ASC")
+    @Update
+    suspend fun updateSubject(subject: SubjectEntity)
+
+    @Delete
+    suspend fun deleteSubject(subject: SubjectEntity)
+
+    @Query("SELECT COUNT(*) FROM subjects")
+    fun getSubjectCount(): Flow<Int>
+
+    // Units
+    @Query("SELECT * FROM units WHERE subjectId = :subjectId ORDER BY sortOrder ASC, id ASC")
     fun getUnitsForSubject(subjectId: Long): Flow<List<UnitEntity>>
+
+    @Query("SELECT * FROM units WHERE id = :id")
+    suspend fun getUnitById(id: Long): UnitEntity?
+
+    @Query("SELECT * FROM lessons WHERE subjectId = :subjectId AND (title LIKE '%' || :query || '%' OR coreIdea LIKE '%' || :query || '%' OR formulas LIKE '%' || :query || '%' OR keyPoints LIKE '%' || :query || '%') ORDER BY sortOrder ASC")
+    fun searchLessonsInSubject(subjectId: Long, query: String): Flow<List<LessonEntity>>
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun insertUnit(unit: UnitEntity): Long
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertUnits(units: List<UnitEntity>)
 
-    @Query("SELECT * FROM lessons WHERE unitId = :unitId ORDER BY lessonNumber ASC")
-    fun getLessonsForUnit(unitId: Long): Flow<List<LessonEntity>>
+    @Update
+    suspend fun updateUnit(unit: UnitEntity)
 
-    @Query("SELECT * FROM lessons WHERE subjectId = :subjectId ORDER BY id ASC")
-    fun getLessonsForSubject(subjectId: Long): Flow<List<LessonEntity>>
+    @Delete
+    suspend fun deleteUnit(unit: UnitEntity)
 
-    @Query("SELECT * FROM lessons WHERE title LIKE '%' || :query || '%' OR coreIdea LIKE '%' || :query || '%'")
-    fun searchLessons(query: String): Flow<List<LessonEntity>>
+    @Query("DELETE FROM units WHERE subjectId = :subjectId AND id < :minId")
+    suspend fun deleteLegacyUnits(subjectId: Long, minId: Long = 100)
+
+    @Query("DELETE FROM lessons WHERE subjectId = :subjectId AND id < :minId")
+    suspend fun deleteLegacyLessons(subjectId: Long, minId: Long = 1000)
+
+    // Chapters
+    @Query("SELECT * FROM chapters WHERE unitId = :unitId ORDER BY sortOrder ASC, id ASC")
+    fun getChaptersForUnit(unitId: Long): Flow<List<ChapterEntity>>
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
-    suspend fun insertLessons(lessons: List<LessonEntity>)
+    suspend fun insertChapters(chapters: List<ChapterEntity>)
+
+    // Lessons
+    @Query("SELECT * FROM lessons WHERE chapterId = :chapterId ORDER BY sortOrder ASC, id ASC")
+    fun getLessonsForChapter(chapterId: Long): Flow<List<LessonEntity>>
+
+    @Query("SELECT * FROM lessons WHERE unitId = :unitId ORDER BY sortOrder ASC, id ASC")
+    fun getLessonsForUnit(unitId: Long): Flow<List<LessonEntity>>
+
+    @Query("SELECT * FROM lessons WHERE subjectId = :subjectId ORDER BY sortOrder ASC, id ASC")
+    fun getLessonsForSubject(subjectId: Long): Flow<List<LessonEntity>>
+
+    @Query("SELECT * FROM lessons WHERE id = :id")
+    suspend fun getLessonById(id: Long): LessonEntity?
+
+    @Query("SELECT * FROM lessons WHERE title LIKE '%' || :query || '%' OR coreIdea LIKE '%' || :query || '%' OR keyPoints LIKE '%' || :query || '%'")
+    fun searchLessons(query: String): Flow<List<LessonEntity>>
+
+    @Query("SELECT COUNT(*) FROM lessons")
+    fun getLessonCount(): Flow<Int>
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertLesson(lesson: LessonEntity): Long
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun insertLessons(lessons: List<LessonEntity>)
 
     @Update
     suspend fun updateLesson(lesson: LessonEntity)
@@ -72,17 +225,26 @@ interface QuestionDao {
     @Query("SELECT * FROM questions ORDER BY id ASC")
     fun getAllQuestions(): Flow<List<QuestionEntity>>
 
-    @Query("SELECT * FROM questions WHERE lessonId = :lessonId")
+    @Query("SELECT * FROM questions WHERE subjectId = :subjectId ORDER BY id ASC")
+    fun getQuestionsForSubject(subjectId: Long): Flow<List<QuestionEntity>>
+
+    @Query("SELECT * FROM questions WHERE unitId = :unitId ORDER BY id ASC")
+    fun getQuestionsForUnit(unitId: Long): Flow<List<QuestionEntity>>
+
+    @Query("SELECT * FROM questions WHERE lessonId = :lessonId ORDER BY id ASC")
     fun getQuestionsForLesson(lessonId: Long): Flow<List<QuestionEntity>>
+
+    @Query("SELECT * FROM questions WHERE subjectId = :subjectId AND difficulty = :difficulty")
+    fun getQuestionsByDifficulty(subjectId: Long, difficulty: String): Flow<List<QuestionEntity>>
 
     @Query("SELECT * FROM questions WHERE subjectId = :subjectId ORDER BY RANDOM() LIMIT :limit")
     suspend fun getRandomQuestionsForSubject(subjectId: Long, limit: Int): List<QuestionEntity>
 
-    @Query("SELECT * FROM questions WHERE subjectId = :subjectId")
-    fun getAllQuestionsForSubject(subjectId: Long): Flow<List<QuestionEntity>>
+    @Query("SELECT * FROM questions WHERE unitId = :unitId ORDER BY RANDOM() LIMIT :limit")
+    suspend fun getRandomQuestionsForUnit(unitId: Long, limit: Int): List<QuestionEntity>
 
-    @Query("SELECT * FROM questions WHERE id IN (SELECT questionId FROM exam_questions WHERE examId = :examId)")
-    suspend fun getQuestionsForExam(examId: Long): List<QuestionEntity>
+    @Query("SELECT * FROM questions ORDER BY RANDOM() LIMIT :limit")
+    suspend fun getRandomQuestionsOverall(limit: Int): List<QuestionEntity>
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertQuestions(questions: List<QuestionEntity>)
@@ -90,138 +252,127 @@ interface QuestionDao {
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertQuestion(question: QuestionEntity): Long
 
+    @Update
+    suspend fun updateQuestion(question: QuestionEntity)
+
     @Delete
     suspend fun deleteQuestion(question: QuestionEntity)
+
+    @Query("SELECT COUNT(*) FROM questions")
+    fun getQuestionCount(): Flow<Int>
+
+    @Query("DELETE FROM questions WHERE subjectId = :subjectId AND id < :minId")
+    suspend fun deleteLegacyQuestions(subjectId: Long, minId: Long = 1000)
 }
 
 @Dao
 interface ExamDao {
-    @Query("SELECT * FROM exams WHERE subjectId = :subjectId")
+    @Query("SELECT * FROM exams ORDER BY id ASC")
+    fun getAllExams(): Flow<List<ExamEntity>>
+
+    @Query("DELETE FROM exams WHERE subjectId = :subjectId AND id < :minId")
+    suspend fun deleteLegacyExams(subjectId: Long, minId: Long = 100)
+
+    @Query("SELECT * FROM exams WHERE subjectId = :subjectId ORDER BY id ASC")
     fun getExamsForSubject(subjectId: Long): Flow<List<ExamEntity>>
 
-    @Query("SELECT * FROM exams")
-    fun getAllExams(): Flow<List<ExamEntity>>
+    @Query("SELECT * FROM exams WHERE unitId = :unitId ORDER BY id ASC")
+    fun getExamsForUnit(unitId: Long): Flow<List<ExamEntity>>
+
+    @Query("SELECT * FROM exams WHERE id = :id")
+    suspend fun getExamById(id: Long): ExamEntity?
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertExams(exams: List<ExamEntity>)
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertExam(exam: ExamEntity): Long
+
+    @Update
+    suspend fun updateExam(exam: ExamEntity)
+
+    @Delete
+    suspend fun deleteExam(exam: ExamEntity)
+
+    @Query("SELECT COUNT(*) FROM exams")
+    fun getExamCount(): Flow<Int>
+
+    // Exam Results
+    @Query("SELECT * FROM exam_results WHERE userId = :userId ORDER BY dateTimestamp DESC")
+    fun getResultsForUser(userId: Long): Flow<List<ExamResultEntity>>
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun insertExamResult(result: ExamResultEntity): Long
 }
 
 @Dao
 interface ProgressDao {
-    @Query("SELECT * FROM user_progress WHERE userId = :userId AND subjectId = :subjectId")
-    fun getProgressForSubject(userId: Long, subjectId: Long): Flow<List<UserProgressEntity>>
+    @Query("SELECT * FROM student_progress WHERE userId = :userId")
+    fun getProgressForUser(userId: Long): Flow<List<StudentProgressEntity>>
 
-    @Query("SELECT * FROM user_progress WHERE userId = :userId")
-    fun getAllProgressForUser(userId: Long): Flow<List<UserProgressEntity>>
-
-    @Query("SELECT lessonId FROM user_progress WHERE userId = :userId AND isCompleted = 1")
+    @Query("SELECT lessonId FROM student_progress WHERE userId = :userId AND isCompleted = 1")
     fun getCompletedLessonIds(userId: Long): Flow<List<Long>>
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
-    suspend fun insertOrUpdateProgress(progress: UserProgressEntity)
+    suspend fun insertProgress(progress: StudentProgressEntity): Long
+
+    @Query("DELETE FROM student_progress WHERE userId = :userId AND lessonId = :lessonId")
+    suspend fun removeProgress(userId: Long, lessonId: Long)
 }
 
 @Dao
 interface FavoriteDao {
-    @Query("SELECT * FROM favorites WHERE userId = :userId")
+    @Query("SELECT * FROM favorites WHERE userId = :userId ORDER BY savedAt DESC")
     fun getFavoritesForUser(userId: Long): Flow<List<FavoriteEntity>>
 
-    @Insert(onConflict = OnConflictStrategy.REPLACE)
-    suspend fun insertFavorite(favorite: FavoriteEntity)
-
-    @Query("DELETE FROM favorites WHERE userId = :userId AND itemType = :type AND itemId = :itemId")
-    suspend fun deleteFavorite(userId: Long, type: String, itemId: Long): Int
-}
-
-@Dao
-interface SubscriptionDao {
-    @Query("SELECT * FROM subscriptions WHERE userId = :userId AND isActive = 1 ORDER BY endDate DESC LIMIT 1")
-    fun getActiveSubscription(userId: Long): Flow<SubscriptionEntity?>
+    @Query("SELECT EXISTS(SELECT 1 FROM favorites WHERE userId = :userId AND itemType = :itemType AND itemId = :itemId)")
+    fun isFavorite(userId: Long, itemType: String, itemId: Long): Flow<Boolean>
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
-    suspend fun insertSubscription(subscription: SubscriptionEntity): Long
+    suspend fun insertFavorite(favorite: FavoriteEntity): Long
 
-    @Update
-    suspend fun updateSubscription(subscription: SubscriptionEntity)
-
-    @Query("UPDATE subscriptions SET isActive = 0 WHERE userId = :userId")
-    suspend fun revokeUserSubscriptions(userId: Long): Int
-
-    @Query("SELECT * FROM subscriptions ORDER BY id DESC")
-    fun getAllSubscriptions(): Flow<List<SubscriptionEntity>>
-
-    @Insert(onConflict = OnConflictStrategy.REPLACE)
-    suspend fun insertPaymentRequest(request: PaymentRequestEntity): Long
-
-    @Query("SELECT * FROM payment_requests WHERE status = 'PENDING' ORDER BY requestDate DESC")
-    fun getPendingPaymentRequests(): Flow<List<PaymentRequestEntity>>
-
-    @Query("SELECT * FROM payment_requests ORDER BY requestDate DESC")
-    fun getAllPaymentRequests(): Flow<List<PaymentRequestEntity>>
-
-    @Query("UPDATE payment_requests SET status = :status, approvedDate = :approvedDate WHERE id = :requestId")
-    suspend fun updatePaymentRequestStatus(requestId: Long, status: String, approvedDate: Long?): Int
-
-    @Insert(onConflict = OnConflictStrategy.REPLACE)
-    suspend fun insertCode(code: SubscriptionCodeEntity): Long
-
-    @Insert(onConflict = OnConflictStrategy.REPLACE)
-    suspend fun insertCodes(codes: List<SubscriptionCodeEntity>)
-
-    @Query("SELECT * FROM subscription_codes WHERE code = :code LIMIT 1")
-    suspend fun getCode(code: String): SubscriptionCodeEntity?
-
-    @Update
-    suspend fun updateCode(code: SubscriptionCodeEntity)
-
-    @Query("SELECT * FROM subscription_codes ORDER BY id DESC")
-    fun getAllCodes(): Flow<List<SubscriptionCodeEntity>>
-}
-
-@Dao
-interface AdminLogDao {
-    @Query("SELECT * FROM admin_logs ORDER BY timestamp DESC")
-    fun getAllLogs(): Flow<List<AdminLogEntity>>
-
-    @Insert(onConflict = OnConflictStrategy.REPLACE)
-    suspend fun insertLog(log: AdminLogEntity)
-}
-
-@Dao
-interface DocumentBookletDao {
-    @Query("SELECT * FROM document_booklets ORDER BY uploadedAt DESC")
-    fun getAllDocumentBooklets(): Flow<List<DocumentBookletEntity>>
-
-    @Query("SELECT * FROM document_booklets WHERE subjectId = :subjectId ORDER BY uploadedAt DESC")
-    fun getBookletsBySubject(subjectId: Long): Flow<List<DocumentBookletEntity>>
-
-    @Insert(onConflict = OnConflictStrategy.REPLACE)
-    suspend fun insertBooklet(booklet: DocumentBookletEntity): Long
-
-    @Delete
-    suspend fun deleteBooklet(booklet: DocumentBookletEntity)
-}
-
-@Dao
-interface ExamResultDao {
-    @Query("SELECT * FROM exam_results WHERE userId = :userId ORDER BY takenAt DESC")
-    fun getUserExamResults(userId: Long): Flow<List<ExamResultEntity>>
-
-    @Insert(onConflict = OnConflictStrategy.REPLACE)
-    suspend fun insertExamResult(result: ExamResultEntity): Long
-
-    @Query("SELECT * FROM exam_results ORDER BY takenAt DESC")
-    fun getAllExamResults(): Flow<List<ExamResultEntity>>
+    @Query("DELETE FROM favorites WHERE userId = :userId AND itemType = :itemType AND itemId = :itemId")
+    suspend fun removeFavorite(userId: Long, itemType: String, itemId: Long)
 }
 
 @Dao
 interface NotificationDao {
-    @Query("SELECT * FROM notifications ORDER BY timestamp DESC")
+    @Query("SELECT * FROM notifications ORDER BY createdAt DESC")
     fun getAllNotifications(): Flow<List<NotificationEntity>>
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertNotification(notification: NotificationEntity): Long
+
+    @Query("UPDATE notifications SET isRead = 1 WHERE id = :id")
+    suspend fun markAsRead(id: Long)
+}
+
+@Dao
+interface ActivityLogDao {
+    @Query("SELECT * FROM activity_logs ORDER BY timestamp DESC LIMIT 200")
+    fun getAllLogs(): Flow<List<ActivityLogEntity>>
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun insertLog(log: ActivityLogEntity): Long
+}
+
+@Dao
+interface StudyMaterialDao {
+    @Query("SELECT * FROM study_materials ORDER BY createdAt DESC")
+    fun getAllMaterials(): Flow<List<StudyMaterialEntity>>
+
+    @Query("SELECT * FROM study_materials WHERE subjectName = :subjectName ORDER BY createdAt DESC")
+    fun getMaterialsBySubject(subjectName: String): Flow<List<StudyMaterialEntity>>
+
+    @Query("SELECT * FROM study_materials WHERE type = :type ORDER BY createdAt DESC")
+    fun getMaterialsByType(type: String): Flow<List<StudyMaterialEntity>>
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun insertMaterial(material: StudyMaterialEntity): Long
+
+    @Delete
+    suspend fun deleteMaterial(material: StudyMaterialEntity)
+
+    @Query("DELETE FROM study_materials WHERE id = :id")
+    suspend fun deleteMaterialById(id: Long)
 }

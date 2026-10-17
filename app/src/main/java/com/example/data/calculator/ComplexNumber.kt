@@ -57,9 +57,26 @@ data class ComplexNumber(val real: Double, val imag: Double) {
         return "[$r ، $deg°]"
     }
 
+    val r: Double get() = modulus
+    val thetaDeg: Double get() = argumentDeg
+    val thetaRad: Double get() = argumentRad
+
+    fun toAlgebraicString(): String = toCartesianString()
+
+    fun sqrt(): ComplexNumber {
+        val rootR = kotlin.math.sqrt(modulus)
+        val halfTheta = argumentRad / 2.0
+        return ComplexNumber(rootR * cos(halfTheta), rootR * sin(halfTheta))
+    }
+
     companion object {
         val ZERO = ComplexNumber(0.0, 0.0)
         val ONE = ComplexNumber(1.0, 0.0)
         val I = ComplexNumber(0.0, 1.0)
+
+        fun fromPolar(r: Double, thetaDeg: Double): ComplexNumber {
+            val rad = Math.toRadians(thetaDeg)
+            return ComplexNumber(r * cos(rad), r * sin(rad))
+        }
     }
 }

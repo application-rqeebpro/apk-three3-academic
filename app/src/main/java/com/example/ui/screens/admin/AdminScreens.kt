@@ -1,7 +1,8 @@
 package com.example.ui.screens.admin
 
-import android.widget.Toast
+import androidx.compose.animation.*
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -15,59 +16,211 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.example.data.local.entities.DocumentBookletEntity
-import com.example.data.local.entities.PaymentRequestEntity
-import com.example.data.local.entities.UserEntity
+import com.example.data.local.entities.*
 import com.example.ui.MainViewModel
 import com.example.ui.Screen
+import com.example.ui.components.copyToClipboard
+import com.example.ui.theme.*
+import java.text.SimpleDateFormat
+import java.util.*
 
-@OptIn(ExperimentalMaterial3Api::class)
+// -------------------------------------------------------------
+// MAIN ADMIN DASHBOARD
+// -------------------------------------------------------------
 @Composable
 fun AdminDashboardScreen(
     viewModel: MainViewModel,
-    onNavigate: (Screen) -> Unit
+    modifier: Modifier = Modifier
 ) {
-    val context = LocalContext.current
-    val studentCount by viewModel.adminStudentCount.collectAsState()
-    val activeSubCount by viewModel.adminActiveSubCount.collectAsState()
+    val currentUser by viewModel.currentUser.collectAsState()
+    val totalStudents by viewModel.adminStudentCount.collectAsState()
+    val activeStudents by viewModel.adminActiveStudentCount.collectAsState()
+    val activeSubs by viewModel.adminActiveSubCount.collectAsState()
+    val expiredSubs by viewModel.adminExpiredSubCount.collectAsState()
     val pendingPayments by viewModel.adminPendingPaymentCount.collectAsState()
     val unusedCodes by viewModel.adminUnusedCodeCount.collectAsState()
-    val booklets by viewModel.allDocumentBooklets.collectAsState()
-    val students by viewModel.adminAllUsers.collectAsState()
+    val usedCodes by viewModel.adminUsedCodeCount.collectAsState()
+    val subjectCount by viewModel.database.curriculumDao().getSubjectCount().collectAsState(initial = 9)
+    val lessonCount by viewModel.database.curriculumDao().getLessonCount().collectAsState(initial = 10)
+    val examCount by viewModel.database.examDao().getExamCount().collectAsState(initial = 4)
 
-    var showChangePasswordDialog by remember { mutableStateOf(false) }
-    var showAddBookletDialog by remember { mutableStateOf(false) }
-    var newPasswordInput by remember { mutableStateOf("") }
-    var confirmPasswordInput by remember { mutableStateOf("") }
+    var adminEmailInput by remember { mutableStateOf("rqeebpro@gmail.com") }
+    var adminPhoneInput by remember { mutableStateOf("785502919") }
+    var adminPrimaryPasswordInput by remember { mutableStateOf("") }
+    var adminSecretPasswordInput by remember { mutableStateOf("") }
+    var loginError by remember { mutableStateOf<String?>(null) }
+    var isLoggingIn by remember { mutableStateOf(false) }
 
-    // Booklet Form State
-    var bookletTitle by remember { mutableStateOf("") }
-    var bookletSubject by remember { mutableStateOf("الرياضيات") }
-    var bookletType by remember { mutableStateOf("PDF") }
-    var bookletFileName by remember { mutableStateOf("") }
-    var bookletDesc by remember { mutableStateOf("") }
+    if (currentUser?.role != "ADMIN") {
+        Column(
+            modifier = modifier
+                .fillMaxSize()
+                .padding(20.dp)
+                .testTag("admin_login_gate"),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.Center
+        ) {
+            Card(
+                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+                shape = RoundedCornerShape(20.dp),
+                elevation = CardDefaults.cardElevation(defaultElevation = 4.dp),
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Column(
+                    modifier = Modifier
+                        .padding(24.dp)
+                        .fillMaxWidth(),
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.spacedBy(12.dp)
+                ) {
+                    Box(
+                        modifier = Modifier
+                            .size(64.dp)
+                            .clip(CircleShape)
+                            .background(Color(0xFFFEF3C7)),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Text(text = "👑", fontSize = 32.sp)
+                    }
 
-    // Cancel Subscription Confirmation Dialog
-    var userToCancelSub by remember { mutableStateOf<UserEntity?>(null) }
+                    Text(
+                        text = "التحقق الأمني لمالك المنصة",
+                        style = MaterialTheme.typography.titleLarge.copy(
+                            fontWeight = FontWeight.Bold,
+                            color = NavyPrimary
+                        )
+                    )
+
+                    Text(
+                        text = "يتطلب الدخول إلى لوحة المالك التحقق من البيانات الأربعة المعتمدة.",
+                        style = MaterialTheme.typography.bodySmall.copy(
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            textAlign = androidx.compose.ui.text.style.TextAlign.Center
+                        )
+                    )
+
+                    // 1. Email
+                    OutlinedTextField(
+                        value = adminEmailInput,
+                        onValueChange = {
+                            adminEmailInput = it
+                            loginError = null
+                        },
+                        label = { Text("البريد الإلكتروني") },
+                        modifier = Modifier.fillMaxWidth(),
+                        singleLine = true
+                    )
+
+                    // 2. Phone
+                    OutlinedTextField(
+                        value = adminPhoneInput,
+                        onValueChange = {
+                            adminPhoneInput = it
+                            loginError = null
+                        },
+                        label = { Text("رقم الهاتف") },
+                        modifier = Modifier.fillMaxWidth(),
+                        singleLine = true
+                    )
+
+                    // 3. Primary Password
+                    OutlinedTextField(
+                        value = adminPrimaryPasswordInput,
+                        onValueChange = {
+                            adminPrimaryPasswordInput = it
+                            loginError = null
+                        },
+                        label = { Text("كلمة المرور الأساسية") },
+                        visualTransformation = androidx.compose.ui.text.input.PasswordVisualTransformation(),
+                        modifier = Modifier.fillMaxWidth(),
+                        singleLine = true
+                    )
+
+                    // 4. Secret Secondary Password
+                    OutlinedTextField(
+                        value = adminSecretPasswordInput,
+                        onValueChange = {
+                            adminSecretPasswordInput = it
+                            loginError = null
+                        },
+                        label = { Text("كلمة المرور الإضافية السرية") },
+                        visualTransformation = androidx.compose.ui.text.input.PasswordVisualTransformation(),
+                        modifier = Modifier.fillMaxWidth(),
+                        singleLine = true
+                    )
+
+                    if (loginError != null) {
+                        Text(
+                            text = loginError ?: "",
+                            color = MaterialTheme.colorScheme.error,
+                            style = MaterialTheme.typography.bodySmall
+                        )
+                    }
+
+                    Button(
+                        onClick = {
+                            if (adminEmailInput.isBlank() || adminPhoneInput.isBlank() || adminPrimaryPasswordInput.isBlank() || adminSecretPasswordInput.isBlank()) {
+                                loginError = "يرجى تعبئة الحقول الأربعة كاملة للمالك"
+                            } else {
+                                isLoggingIn = true
+                                viewModel.loginOwner(
+                                    email = adminEmailInput.trim(),
+                                    phone = adminPhoneInput.trim(),
+                                    primaryPass = adminPrimaryPasswordInput.trim(),
+                                    secretSecondaryPass = adminSecretPasswordInput.trim(),
+                                    onError = {
+                                        isLoggingIn = false
+                                        loginError = it
+                                    }
+                                ) {
+                                    isLoggingIn = false
+                                    loginError = null
+                                }
+                            }
+                        },
+                        enabled = !isLoggingIn,
+                        colors = ButtonDefaults.buttonColors(containerColor = NavyPrimary),
+                        shape = RoundedCornerShape(12.dp),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(48.dp)
+                    ) {
+                        if (isLoggingIn) {
+                            CircularProgressIndicator(modifier = Modifier.size(20.dp), color = Color.White)
+                        } else {
+                            Text(text = "دخول", fontWeight = FontWeight.Bold)
+                        }
+                    }
+
+                    TextButton(onClick = { viewModel.navigateTo(Screen.Home) }) {
+                        Text("العودة للصفحة الرئيسية")
+                    }
+                }
+            }
+        }
+        return
+    }
 
     LazyColumn(
-        modifier = Modifier
+        modifier = modifier
             .fillMaxSize()
-            .padding(horizontal = 16.dp),
-        verticalArrangement = Arrangement.spacedBy(16.dp),
-        contentPadding = PaddingValues(top = 16.dp, bottom = 32.dp)
+            .padding(16.dp)
+            .testTag("admin_dashboard_content"),
+        verticalArrangement = Arrangement.spacedBy(16.dp)
     ) {
-        // Owner Header Card
+        // Admin Banner
         item {
             Card(
-                modifier = Modifier.fillMaxWidth(),
+                colors = CardDefaults.cardColors(containerColor = NavyPrimary),
                 shape = RoundedCornerShape(18.dp),
-                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer)
+                modifier = Modifier.fillMaxWidth()
             ) {
                 Column(
                     modifier = Modifier.padding(18.dp),
@@ -75,111 +228,721 @@ fun AdminDashboardScreen(
                 ) {
                     Row(
                         modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(14.dp)
+                    ) {
+                        Box(
+                            modifier = Modifier
+                                .size(50.dp)
+                                .clip(CircleShape)
+                                .background(Color.White.copy(alpha = 0.2f)),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Text(text = "👑", fontSize = 26.sp)
+                        }
+
+                        Column(modifier = Modifier.weight(1f)) {
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(8.dp)
+                            ) {
+                                Text(
+                                    text = "لوحة تحكم المالك",
+                                    style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold, color = Color.White)
+                                )
+                                Surface(
+                                    shape = RoundedCornerShape(6.dp),
+                                    color = AmberSecondary
+                                ) {
+                                    Text(
+                                        text = "الإصدار 2.0",
+                                        color = Color(0xFF78350F),
+                                        fontSize = 10.sp,
+                                        fontWeight = FontWeight.Bold,
+                                        modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+                                    )
+                                }
+                            }
+                            Text(
+                                text = "مرحباً بك يا ${currentUser?.fullName} • ${currentUser?.phoneOrEmail}",
+                                style = MaterialTheme.typography.bodySmall.copy(color = AmberLight, fontWeight = FontWeight.Bold)
+                            )
+                        }
+
+                        OutlinedButton(
+                            onClick = { viewModel.logout() },
+                            colors = ButtonDefaults.outlinedButtonColors(contentColor = Color.White),
+                            border = androidx.compose.foundation.BorderStroke(1.dp, Color.White.copy(alpha = 0.5f)),
+                            contentPadding = PaddingValues(horizontal = 8.dp, vertical = 2.dp),
+                            modifier = Modifier.height(32.dp)
+                        ) {
+                            Text("خروج", fontSize = 11.sp)
+                        }
+                    }
+
+                    Text(
+                        text = "إدارة الطلاب، تفعيل الاشتراكات، مراجعة المحافظ (ون كاش 192737631 • جيب 913554 • جوالي 782916997)، وإصدار الأكواد",
+                        style = MaterialTheme.typography.bodySmall.copy(color = Color.White.copy(alpha = 0.85f))
+                    )
+                }
+            }
+        }
+
+        // Metrics Grid
+        item {
+            Text(
+                text = "📊 إحصائيات المنظومة:",
+                style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold)
+            )
+
+            val metrics = listOf(
+                MetricData("إجمالي الطلاب", "$totalStudents", Color(0xFFEFF6FF), NavyPrimary),
+                MetricData("الطلاب النشطون", "$activeStudents", Color(0xFFDCFCE7), SuccessGreen),
+                MetricData("الاشتراكات النشطة", "$activeSubs", Color(0xFFFEF3C7), AmberSecondary),
+                MetricData("الاشتراكات المنتهية", "$expiredSubs", Color(0xFFFEE2E2), ErrorRed),
+                MetricData("طلبات دفع معلقة", "$pendingPayments", if (pendingPayments > 0) Color(0xFFFEE2E2) else Color(0xFFF1F5F9), if (pendingPayments > 0) ErrorRed else TextSecondaryLight),
+                MetricData("الأكواد غير المستخدمة", "$unusedCodes", Color(0xFFF5F3FF), Color(0xFF6D28D9)),
+                MetricData("الأكواد المستخدمة", "$usedCodes", Color(0xFFECFDF5), TealAccent),
+                MetricData("المواد والدروس", "$subjectCount مادة / $lessonCount درس", Color(0xFFF8FAFC), TextPrimaryLight)
+            )
+
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                metrics.chunked(2).forEach { rowMetrics ->
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        rowMetrics.forEach { m ->
+                            Card(
+                                colors = CardDefaults.cardColors(containerColor = m.bgColor),
+                                shape = RoundedCornerShape(12.dp),
+                                modifier = Modifier
+                                    .weight(1f)
+                                    .height(80.dp)
+                            ) {
+                                Column(
+                                    modifier = Modifier
+                                        .fillMaxSize()
+                                        .padding(10.dp),
+                                    verticalArrangement = Arrangement.Center
+                                ) {
+                                    Text(
+                                        text = m.label,
+                                        style = MaterialTheme.typography.labelSmall.copy(
+                                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                            fontSize = 11.sp
+                                        )
+                                    )
+                                    Spacer(modifier = Modifier.height(2.dp))
+                                    Text(
+                                        text = m.value,
+                                        style = MaterialTheme.typography.titleLarge.copy(
+                                            fontWeight = FontWeight.Bold,
+                                            color = m.textColor,
+                                            fontSize = 18.sp
+                                        )
+                                    )
+                                }
+                            }
+                        }
+                        if (rowMetrics.size == 1) {
+                            Spacer(modifier = Modifier.weight(1f))
+                        }
+                    }
+                }
+            }
+        }
+
+        // Admin Management Modules Navigation
+        item {
+            Text(
+                text = "الأقسام الإدارية:",
+                style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold)
+            )
+
+            val modules = listOf(
+                AdminModuleItem("إدارة الطلاب وتفعيل الاشتراكات", "عرض وتعديل وتفعيل وتمديد وحظر المشتركين", Icons.Default.People, Screen.AdminStudents),
+                AdminModuleItem("طلبات الدفع بالمحافظ الإلكترونية", "مراجعة إيصالات جيب وجوالي ون كاش والقبول/الرفض", Icons.Default.Payment, Screen.AdminPayments),
+                AdminModuleItem("نظام أكواد الاشتراك", "إنشاء وتوليد وربط وإلغاء أكواد التفعيل", Icons.Default.VpnKey, Screen.AdminCodes),
+                AdminModuleItem("إدارة المناهج والدروس", "إضافة وتعديل وحذف المواد والدروس والشروحات", Icons.Default.MenuBook, Screen.AdminContent),
+                AdminModuleItem("إضافة ورفع الملازم والكتب 📑", "رفع وإضافة كتب دراسية وملازم وملخصات وأوراق وزارية", Icons.Default.UploadFile, Screen.AdminStudyMaterials),
+                AdminModuleItem("مركز الإشعارات الوزارية", "إرسال رسائل وتنبيهات لجميع الطلاب أو فئات محددة", Icons.Default.Campaign, Screen.AdminNotifications),
+                AdminModuleItem("سجل العمليات الإدارية", "سجل تدقيق كامل لكافة الأنشطة مع التواريخ", Icons.Default.History, Screen.AdminLogs)
+            )
+
+            Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                modules.forEach { mod ->
+                    Card(
+                        onClick = { viewModel.navigateTo(mod.screen) },
+                        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+                        shape = RoundedCornerShape(14.dp),
+                        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
+                        modifier = Modifier.fillMaxWidth()
                     ) {
                         Row(
+                            modifier = Modifier
+                                .padding(16.dp)
+                                .fillMaxWidth(),
                             verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.spacedBy(10.dp)
+                            horizontalArrangement = Arrangement.spacedBy(14.dp)
                         ) {
                             Box(
                                 modifier = Modifier
-                                    .size(46.dp)
+                                    .size(42.dp)
                                     .clip(CircleShape)
-                                    .background(MaterialTheme.colorScheme.primary),
+                                    .background(MaterialTheme.colorScheme.primaryContainer),
                                 contentAlignment = Alignment.Center
                             ) {
-                                Icon(Icons.Default.AdminPanelSettings, contentDescription = null, tint = Color.White)
+                                Icon(imageVector = mod.icon, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
                             }
-                            Column {
+
+                            Column(modifier = Modifier.weight(1f)) {
+                                Text(text = mod.title, fontWeight = FontWeight.Bold, fontSize = 15.sp)
                                 Text(
-                                    text = "لوحة تحكم المالك والمدير العام",
-                                    style = MaterialTheme.typography.titleMedium,
-                                    fontWeight = FontWeight.Bold,
-                                    color = MaterialTheme.colorScheme.onPrimaryContainer
+                                    text = mod.desc,
+                                    style = MaterialTheme.typography.bodySmall.copy(color = MaterialTheme.colorScheme.onSurfaceVariant)
                                 )
+                            }
+
+                            Icon(imageVector = Icons.Default.ChevronLeft, contentDescription = null, tint = MaterialTheme.colorScheme.onSurfaceVariant)
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+data class MetricData(val label: String, val value: String, val bgColor: Color, val textColor: Color)
+data class AdminModuleItem(val title: String, val desc: String, val icon: ImageVector, val screen: Screen)
+
+// -------------------------------------------------------------
+// ADMIN STUDENTS MANAGEMENT
+// -------------------------------------------------------------
+@Composable
+fun AdminStudentsScreen(
+    viewModel: MainViewModel,
+    modifier: Modifier = Modifier
+) {
+    val students by viewModel.adminAllUsers.collectAsState()
+    var searchQuery by remember { mutableStateOf("") }
+
+    var selectedStudentForDirectActivation by remember { mutableStateOf<UserEntity?>(null) }
+    var selectedStudentForExtend by remember { mutableStateOf<UserEntity?>(null) }
+    var selectedStudentForBlock by remember { mutableStateOf<UserEntity?>(null) }
+    var blockReasonInput by remember { mutableStateOf("") }
+
+    val filtered = remember(students, searchQuery) {
+        students.filter {
+            it.fullName.contains(searchQuery, ignoreCase = true) ||
+            it.phoneOrEmail.contains(searchQuery, ignoreCase = true)
+        }
+    }
+
+    LazyColumn(
+        modifier = modifier
+            .fillMaxSize()
+            .padding(16.dp)
+            .testTag("admin_students_content"),
+        verticalArrangement = Arrangement.spacedBy(12.dp)
+    ) {
+        item {
+            Text(
+                text = "إدارة الطلاب (${filtered.size}) 👥",
+                style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold)
+            )
+            Spacer(modifier = Modifier.height(4.dp))
+            OutlinedTextField(
+                value = searchQuery,
+                onValueChange = { searchQuery = it },
+                placeholder = { Text("بحث بالاسم أو رقم الهاتف...") },
+                leadingIcon = { Icon(Icons.Default.Search, contentDescription = null) },
+                shape = RoundedCornerShape(12.dp),
+                modifier = Modifier.fillMaxWidth()
+            )
+        }
+
+        items(filtered) { student ->
+            Card(
+                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+                shape = RoundedCornerShape(14.dp),
+                elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Column(
+                    modifier = Modifier
+                        .padding(14.dp)
+                        .fillMaxWidth(),
+                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Column {
+                            Text(text = student.fullName, fontWeight = FontWeight.Bold, fontSize = 15.sp)
+                            Text(
+                                text = "الهاتف: ${student.phoneOrEmail} • ${student.track}",
+                                style = MaterialTheme.typography.bodySmall.copy(color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            )
+                        }
+
+                        Surface(
+                            shape = RoundedCornerShape(6.dp),
+                            color = when {
+                                student.isBlocked -> Color(0xFFFEE2E2)
+                                student.isActive -> Color(0xFFDCFCE7)
+                                else -> Color(0xFFF1F5F9)
+                            }
+                        ) {
+                            Text(
+                                text = when {
+                                    student.role == "ADMIN" -> "👑 المالك"
+                                    student.isBlocked -> "⛔ محظور"
+                                    student.isActive -> "✅ نشط"
+                                    else -> "معطل"
+                                },
+                                color = when {
+                                    student.isBlocked -> ErrorRed
+                                    student.isActive -> SuccessGreen
+                                    else -> Color.Gray
+                                },
+                                fontWeight = FontWeight.Bold,
+                                fontSize = 11.sp,
+                                modifier = Modifier.padding(horizontal = 8.dp, vertical = 2.dp)
+                            )
+                        }
+                    }
+
+                    if (student.isBlocked && !student.blockReason.isNullOrBlank()) {
+                        Surface(
+                            shape = RoundedCornerShape(8.dp),
+                            color = Color(0xFFFFF1F2),
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Row(
+                                modifier = Modifier.padding(8.dp),
+                                horizontalArrangement = Arrangement.spacedBy(6.dp),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Icon(Icons.Default.Warning, contentDescription = null, tint = ErrorRed, modifier = Modifier.size(16.dp))
                                 Text(
-                                    text = "إدارة كاملة: تغيير كلمة السر، رفع الملازم، وإلغاء الاشتراكات",
-                                    style = MaterialTheme.typography.bodySmall,
-                                    color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.8f)
+                                    text = "سبب الحظر: ${student.blockReason}",
+                                    style = MaterialTheme.typography.bodySmall.copy(color = ErrorRed, fontSize = 11.sp)
                                 )
                             }
                         }
                     }
 
-                    // Direct Action: Change Owner Password
-                    Button(
-                        onClick = { showChangePasswordDialog = true },
+                    // Admin Action Buttons for this student
+                    Row(
                         modifier = Modifier.fillMaxWidth(),
-                        shape = RoundedCornerShape(12.dp),
-                        colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary)
+                        horizontalArrangement = Arrangement.spacedBy(6.dp)
                     ) {
-                        Icon(Icons.Default.LockReset, contentDescription = null)
-                        Spacer(modifier = Modifier.width(8.dp))
-                        Text("تغيير كلمة السر الخاصة بالمالك", fontWeight = FontWeight.Bold)
+                        Button(
+                            onClick = { selectedStudentForDirectActivation = student },
+                            colors = ButtonDefaults.buttonColors(containerColor = NavyPrimary),
+                            shape = RoundedCornerShape(8.dp),
+                            contentPadding = PaddingValues(horizontal = 8.dp, vertical = 4.dp),
+                            modifier = Modifier.weight(1f)
+                        ) {
+                            Text(text = "تفعيل ⚡", fontSize = 11.sp)
+                        }
+
+                        OutlinedButton(
+                            onClick = { selectedStudentForExtend = student },
+                            shape = RoundedCornerShape(8.dp),
+                            contentPadding = PaddingValues(horizontal = 8.dp, vertical = 4.dp),
+                            modifier = Modifier.weight(1f)
+                        ) {
+                            Text(text = "تمديد ➕", fontSize = 11.sp)
+                        }
+
+                        // Cancel subscription button
+                        OutlinedButton(
+                            onClick = {
+                                viewModel.adminCancelStudentSubscription(student.id, student.fullName)
+                            },
+                            shape = RoundedCornerShape(8.dp),
+                            colors = ButtonDefaults.outlinedButtonColors(contentColor = Color(0xFFB45309)),
+                            contentPadding = PaddingValues(horizontal = 6.dp, vertical = 4.dp),
+                            modifier = Modifier.weight(1f)
+                        ) {
+                            Text(text = "إلغاء اشتراك ✕", fontSize = 11.sp)
+                        }
+
+                        // Block / Unblock button
+                        if (student.role != "ADMIN") {
+                            if (student.isBlocked) {
+                                Button(
+                                    onClick = {
+                                        viewModel.adminUnblockStudent(student.id, student.fullName)
+                                    },
+                                    colors = ButtonDefaults.buttonColors(containerColor = SuccessGreen),
+                                    shape = RoundedCornerShape(8.dp),
+                                    contentPadding = PaddingValues(horizontal = 6.dp, vertical = 4.dp),
+                                    modifier = Modifier.weight(1f)
+                                ) {
+                                    Text(text = "فك الحظر 🔓", fontSize = 11.sp)
+                                }
+                            } else {
+                                Button(
+                                    onClick = {
+                                        selectedStudentForBlock = student
+                                    },
+                                    colors = ButtonDefaults.buttonColors(containerColor = ErrorRed),
+                                    shape = RoundedCornerShape(8.dp),
+                                    contentPadding = PaddingValues(horizontal = 6.dp, vertical = 4.dp),
+                                    modifier = Modifier.weight(1f)
+                                ) {
+                                    Text(text = "حظر ⛔", fontSize = 11.sp)
+                                }
+                            }
+                        }
                     }
                 }
             }
         }
+    }
 
-        // Stats Overview (4 Cards)
+    // Direct Activation Dialog
+    if (selectedStudentForDirectActivation != null) {
+        val s = selectedStudentForDirectActivation!!
+        AlertDialog(
+            onDismissRequest = { selectedStudentForDirectActivation = null },
+            title = { Text("تفعيل اشتراك مباشر للطالب") },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Text("الطالب: ${s.fullName}")
+                    Text("اختر خطة التفعيل الفوري:")
+                    val plans = listOf(
+                        Triple("3 أشهر", 3, 12000),
+                        Triple("6 أشهر", 6, 24000),
+                        Triple("سنة كاملة", 12, 30000)
+                    )
+                    plans.forEach { (name, months, price) ->
+                        Button(
+                            onClick = {
+                                viewModel.adminDirectActivate(s.id, s.fullName, months, name, price)
+                                selectedStudentForDirectActivation = null
+                            },
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Text("$name — $price ريال")
+                        }
+                    }
+                }
+            },
+            confirmButton = {},
+            dismissButton = {
+                TextButton(onClick = { selectedStudentForDirectActivation = null }) {
+                    Text("إلغاء")
+                }
+            }
+        )
+    }
+
+    // Extend Subscription Dialog
+    if (selectedStudentForExtend != null) {
+        val s = selectedStudentForExtend!!
+        var customDays by remember { mutableStateOf(30) }
+
+        AlertDialog(
+            onDismissRequest = { selectedStudentForExtend = null },
+            title = { Text("تمديد اشتراك الطالب") },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                    Text("الطالب: ${s.fullName}")
+                    Text("اختر مدة التمديد التي ستضاف لتاريخ الانتهاء:")
+
+                    Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                        FilterChip(selected = customDays == 30, onClick = { customDays = 30 }, label = { Text("شهر") })
+                        FilterChip(selected = customDays == 90, onClick = { customDays = 90 }, label = { Text("3 أشهر") })
+                        FilterChip(selected = customDays == 180, onClick = { customDays = 180 }, label = { Text("6 أشهر") })
+                        FilterChip(selected = customDays == 365, onClick = { customDays = 365 }, label = { Text("سنة") })
+                    }
+                }
+            },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        viewModel.adminExtendSubscription(s.id, s.fullName, customDays)
+                        selectedStudentForExtend = null
+                    }
+                ) {
+                    Text("تأكيد التمديد")
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { selectedStudentForExtend = null }) {
+                    Text("إلغاء")
+                }
+            }
+        )
+    }
+
+    // Block Student Confirmation Dialog
+    if (selectedStudentForBlock != null) {
+        val s = selectedStudentForBlock!!
+        AlertDialog(
+            onDismissRequest = {
+                selectedStudentForBlock = null
+                blockReasonInput = ""
+            },
+            title = {
+                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Text("⛔", fontSize = 20.sp)
+                    Text("تأكيد حظر المشترك", fontWeight = FontWeight.Bold, color = ErrorRed)
+                }
+            },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                    Text("هل أنت متأكد من حظر المشترك: ${s.fullName} (${s.phoneOrEmail})؟")
+                    Text(
+                        text = "عند الحظر، سيتم إيقاف دخوله للتطبيق فوراً، وإلغاء أي اشتراك فعال لديه، ولن يتمكن من الدخول إلا بعد فك الحظر بواسطة المالك.",
+                        style = MaterialTheme.typography.bodySmall.copy(color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    )
+                    OutlinedTextField(
+                        value = blockReasonInput,
+                        onValueChange = { blockReasonInput = it },
+                        label = { Text("سبب الحظر (اختياري)") },
+                        placeholder = { Text("مثال: انتهاك شروط الاستخدام أو محاولات تخمين") },
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                }
+            },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        val reason = blockReasonInput.ifBlank { "تم الحظر بقرار من المالك العام" }
+                        viewModel.adminBlockStudent(s.id, s.fullName, reason)
+                        selectedStudentForBlock = null
+                        blockReasonInput = ""
+                    },
+                    colors = ButtonDefaults.buttonColors(containerColor = ErrorRed)
+                ) {
+                    Text("تأكيد الحظر ⛔")
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = {
+                    selectedStudentForBlock = null
+                    blockReasonInput = ""
+                }) {
+                    Text("إلغاء")
+                }
+            }
+        )
+    }
+}
+
+// -------------------------------------------------------------
+// ADMIN PAYMENTS MANAGEMENT
+// -------------------------------------------------------------
+@Composable
+fun AdminPaymentsScreen(
+    viewModel: MainViewModel,
+    modifier: Modifier = Modifier
+) {
+    val payments by viewModel.adminAllPayments.collectAsState()
+    var selectedFilter by remember { mutableStateOf("PENDING") } // "PENDING", "APPROVED", "REJECTED", "ALL"
+
+    var rejectingPaymentId by remember { mutableStateOf<Long?>(null) }
+    var rejectionReason by remember { mutableStateOf("") }
+
+    val filtered = remember(payments, selectedFilter) {
+        if (selectedFilter == "ALL") payments else payments.filter { it.status == selectedFilter }
+    }
+
+    val dateFormat = SimpleDateFormat("yyyy/MM/dd HH:mm", Locale.getDefault())
+
+    LazyColumn(
+        modifier = modifier
+            .fillMaxSize()
+            .padding(16.dp)
+            .testTag("admin_payments_content"),
+        verticalArrangement = Arrangement.spacedBy(12.dp)
+    ) {
         item {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(10.dp)
-            ) {
-                Card(
-                    modifier = Modifier.weight(1f),
-                    shape = RoundedCornerShape(14.dp),
-                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)
-                ) {
-                    Column(modifier = Modifier.padding(14.dp)) {
-                        Text("إجمالي الطلاب", style = MaterialTheme.typography.bodySmall, color = Color.Gray)
-                        Text("$studentCount", style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold)
-                    }
-                }
-                Card(
-                    modifier = Modifier.weight(1f),
-                    shape = RoundedCornerShape(14.dp),
-                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)
-                ) {
-                    Column(modifier = Modifier.padding(14.dp)) {
-                        Text("الاشتراكات النشطة", style = MaterialTheme.typography.bodySmall, color = Color.Gray)
-                        Text("$activeSubCount", style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold, color = Color(0xFF16A34A))
-                    }
+            Text(
+                text = "طلبات الدفع بالمحافظ الإلكترونية 💳",
+                style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold)
+            )
+            Spacer(modifier = Modifier.height(4.dp))
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                FilterChip(selected = selectedFilter == "PENDING", onClick = { selectedFilter = "PENDING" }, label = { Text("قيد المراجعة") })
+                FilterChip(selected = selectedFilter == "APPROVED", onClick = { selectedFilter = "APPROVED" }, label = { Text("مقبول") })
+                FilterChip(selected = selectedFilter == "REJECTED", onClick = { selectedFilter = "REJECTED" }, label = { Text("مرفوض") })
+                FilterChip(selected = selectedFilter == "ALL", onClick = { selectedFilter = "ALL" }, label = { Text("الكل") })
+            }
+        }
+
+        if (filtered.isEmpty()) {
+            item {
+                Box(modifier = Modifier.fillMaxWidth().padding(top = 40.dp), contentAlignment = Alignment.Center) {
+                    Text("لا توجد طلبات في هذا القسم حالياً.", color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
             }
         }
 
-        item {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(10.dp)
+        items(filtered) { pay ->
+            Card(
+                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+                shape = RoundedCornerShape(14.dp),
+                elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
+                modifier = Modifier.fillMaxWidth()
             ) {
-                Card(
-                    modifier = Modifier.weight(1f),
-                    shape = RoundedCornerShape(14.dp),
-                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)
+                Column(
+                    modifier = Modifier
+                        .padding(16.dp)
+                        .fillMaxWidth(),
+                    verticalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
-                    Column(modifier = Modifier.padding(14.dp)) {
-                        Text("طلبات الدفع المعلقة", style = MaterialTheme.typography.bodySmall, color = Color.Gray)
-                        Text("$pendingPayments", style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold, color = Color(0xFFEA580C))
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text(text = pay.studentName, fontWeight = FontWeight.Bold, fontSize = 16.sp)
+                        Surface(
+                            shape = RoundedCornerShape(6.dp),
+                            color = when (pay.status) {
+                                "APPROVED" -> Color(0xFFDCFCE7)
+                                "REJECTED" -> Color(0xFFFEE2E2)
+                                else -> Color(0xFFFEF3C7)
+                            }
+                        ) {
+                            Text(
+                                text = when (pay.status) {
+                                    "APPROVED" -> "مقبول ✅"
+                                    "REJECTED" -> "مرفوض ❌"
+                                    else -> "قيد المراجعة ⏳"
+                                },
+                                fontWeight = FontWeight.Bold,
+                                color = when (pay.status) {
+                                    "APPROVED" -> SuccessGreen
+                                    "REJECTED" -> ErrorRed
+                                    else -> AmberSecondary
+                                },
+                                fontSize = 12.sp,
+                                modifier = Modifier.padding(horizontal = 8.dp, vertical = 2.dp)
+                            )
+                        }
                     }
-                }
-                Card(
-                    modifier = Modifier.weight(1f),
-                    shape = RoundedCornerShape(14.dp),
-                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)
-                ) {
-                    Column(modifier = Modifier.padding(14.dp)) {
-                        Text("الملفات والملازم", style = MaterialTheme.typography.bodySmall, color = Color.Gray)
-                        Text("${booklets.size}", style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold, color = Color(0xFF2563EB))
+
+                    Text(text = "الخطة: ${pay.planName} • المبلغ: ${pay.amountYmr} ريال يمني")
+                    Text(text = "المحفظة: ${pay.walletName} • هاتف الطالب: ${pay.studentPhone}")
+                    Text(text = "رقم عملية التحويل: ${pay.transferRefNumber}", fontWeight = FontWeight.Bold, color = NavyPrimary)
+                    Text(text = "التاريخ: ${dateFormat.format(Date(pay.createdAt))}", fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+
+                    if (pay.receiptImageUri != null) {
+                        Text(text = "ملاحظة الطالب: ${pay.receiptImageUri}", style = MaterialTheme.typography.bodySmall)
+                    }
+
+                    if (pay.status == "REJECTED" && pay.rejectionReason != null) {
+                        Text(text = "سبب الرفض: ${pay.rejectionReason}", color = ErrorRed, fontWeight = FontWeight.SemiBold)
+                    }
+
+                    // Admin Actions if Pending
+                    if (pay.status == "PENDING") {
+                        Spacer(modifier = Modifier.height(4.dp))
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            Button(
+                                onClick = { viewModel.adminReviewPayment(pay.id, approve = true, createCode = false) },
+                                colors = ButtonDefaults.buttonColors(containerColor = SuccessGreen),
+                                shape = RoundedCornerShape(8.dp),
+                                modifier = Modifier.weight(1f)
+                            ) {
+                                Text(text = "قبول وتفعيل مباشر", fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                            }
+
+                            Button(
+                                onClick = { viewModel.adminReviewPayment(pay.id, approve = true, createCode = true) },
+                                colors = ButtonDefaults.buttonColors(containerColor = AmberSecondary),
+                                shape = RoundedCornerShape(8.dp),
+                                modifier = Modifier.weight(1f)
+                            ) {
+                                Text(text = "قبول وتوليد كود", fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                            }
+
+                            OutlinedButton(
+                                onClick = {
+                                    rejectingPaymentId = pay.id
+                                    rejectionReason = "رقم الحوالة غير صحيح أو لم يصل المبلغ إلى الحساب"
+                                },
+                                shape = RoundedCornerShape(8.dp),
+                                modifier = Modifier.weight(1f)
+                            ) {
+                                Text(text = "رفض الطلب", color = ErrorRed, fontSize = 11.sp)
+                            }
+                        }
                     }
                 }
             }
         }
+    }
 
-        // Section: Booklets & Study Files Management (إضافة ملفات PDF و Word)
+    // Rejection Dialog with reason
+    if (rejectingPaymentId != null) {
+        AlertDialog(
+            onDismissRequest = { rejectingPaymentId = null },
+            title = { Text("رفض طلب الدفع") },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Text("اكتب سبب الرفض ليظهر للطالب في الإشعارات:")
+                    OutlinedTextField(
+                        value = rejectionReason,
+                        onValueChange = { rejectionReason = it },
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                }
+            },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        val id = rejectingPaymentId!!
+                        rejectingPaymentId = null
+                        viewModel.adminReviewPayment(id, approve = false, reason = rejectionReason)
+                    },
+                    colors = ButtonDefaults.buttonColors(containerColor = ErrorRed)
+                ) {
+                    Text("تأكيد الرفض")
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { rejectingPaymentId = null }) {
+                    Text("إلغاء")
+                }
+            }
+        )
+    }
+}
+
+// -------------------------------------------------------------
+// ADMIN CODES MANAGEMENT
+// -------------------------------------------------------------
+@Composable
+fun AdminCodesScreen(
+    viewModel: MainViewModel,
+    modifier: Modifier = Modifier
+) {
+    val context = LocalContext.current
+    val codes by viewModel.adminAllCodes.collectAsState()
+    var showGenerateDialog by remember { mutableStateOf(false) }
+
+    val dateFormat = SimpleDateFormat("yyyy/MM/dd", Locale.getDefault())
+
+    LazyColumn(
+        modifier = modifier
+            .fillMaxSize()
+            .padding(16.dp)
+            .testTag("admin_codes_content"),
+        verticalArrangement = Arrangement.spacedBy(12.dp)
+    ) {
         item {
             Row(
                 modifier = Modifier.fillMaxWidth(),
@@ -187,296 +950,735 @@ fun AdminDashboardScreen(
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Text(
-                    text = "📁 إدارة ملفات PDF وملفات Word المرفوعة",
-                    style = MaterialTheme.typography.titleMedium,
-                    fontWeight = FontWeight.Bold
+                    text = "أكواد الاشتراكات (${codes.size}) 🔑",
+                    style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold)
                 )
+
                 Button(
-                    onClick = { showAddBookletDialog = true },
+                    onClick = { showGenerateDialog = true },
                     shape = RoundedCornerShape(10.dp)
                 ) {
-                    Icon(Icons.Default.Add, contentDescription = null, modifier = Modifier.size(18.dp))
+                    Icon(imageVector = Icons.Default.Add, contentDescription = null)
                     Spacer(modifier = Modifier.width(4.dp))
-                    Text("إضافة ملف")
+                    Text("إنشاء كود جديد")
                 }
             }
         }
 
-        items(booklets) { booklet ->
+        items(codes) { codeEntity ->
             Card(
-                modifier = Modifier.fillMaxWidth(),
+                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
                 shape = RoundedCornerShape(14.dp),
-                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)
+                elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
+                modifier = Modifier.fillMaxWidth()
             ) {
-                Row(
+                Column(
                     modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(14.dp),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
+                        .padding(14.dp)
+                        .fillMaxWidth(),
+                    verticalArrangement = Arrangement.spacedBy(6.dp)
                 ) {
                     Row(
-                        modifier = Modifier.weight(1f),
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(10.dp)
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
                     ) {
+                        Text(
+                            text = codeEntity.code,
+                            style = MaterialTheme.typography.titleMedium.copy(
+                                fontWeight = FontWeight.ExtraBold,
+                                color = NavyPrimary,
+                                fontSize = 18.sp
+                            )
+                        )
+
                         Surface(
-                            shape = RoundedCornerShape(8.dp),
-                            color = if (booklet.fileType == "PDF") Color(0xFFEF4444) else Color(0xFF3B82F6)
+                            shape = RoundedCornerShape(6.dp),
+                            color = when (codeEntity.status) {
+                                "UNUSED" -> Color(0xFFDCFCE7)
+                                "USED" -> Color(0xFFEFF6FF)
+                                else -> Color(0xFFFEE2E2)
+                            }
                         ) {
                             Text(
-                                text = booklet.fileType,
-                                modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
-                                color = Color.White,
-                                fontWeight = FontWeight.Bold,
-                                style = MaterialTheme.typography.labelSmall
-                            )
-                        }
-                        Column {
-                            Text(
-                                text = booklet.title,
-                                style = MaterialTheme.typography.titleSmall,
-                                fontWeight = FontWeight.Bold,
-                                maxLines = 1,
-                                overflow = TextOverflow.Ellipsis
-                            )
-                            Text(
-                                text = "${booklet.subjectName} • ${booklet.fileName} • ${booklet.fileSize}",
-                                style = MaterialTheme.typography.bodySmall,
-                                color = Color.Gray
-                            )
-                        }
-                    }
-                    IconButton(
-                        onClick = { viewModel.adminDeleteDocumentBooklet(booklet) }
-                    ) {
-                        Icon(Icons.Default.Delete, contentDescription = "حذف الملف", tint = Color.Red)
-                    }
-                }
-            }
-        }
-
-        // Section: Subscribers & Cancelling Subscriptions (صلاحية إلغاء اشتراك أي مشترك)
-        item {
-            Text(
-                text = "👥 المشتركون والطلاب (إلغاء الاشتراكات)",
-                style = MaterialTheme.typography.titleMedium,
-                fontWeight = FontWeight.Bold
-            )
-        }
-
-        items(students.filter { it.role == "STUDENT" }) { student ->
-            Card(
-                modifier = Modifier.fillMaxWidth(),
-                shape = RoundedCornerShape(14.dp),
-                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)
-            ) {
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(14.dp),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Column(modifier = Modifier.weight(1f)) {
-                        Text(
-                            text = student.fullName,
-                            style = MaterialTheme.typography.titleSmall,
-                            fontWeight = FontWeight.Bold
-                        )
-                        Text(
-                            text = "هاتف: ${student.phoneOrEmail} | الشعبة: ${student.track}",
-                            style = MaterialTheme.typography.bodySmall,
-                            color = Color.Gray
-                        )
-                    }
-
-                    Button(
-                        onClick = { userToCancelSub = student },
-                        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFDC2626)),
-                        shape = RoundedCornerShape(10.dp)
-                    ) {
-                        Text("إلغاء الاشتراك", style = MaterialTheme.typography.labelSmall)
-                    }
-                }
-            }
-        }
-    }
-
-    // Dialog: Change Owner Password
-    if (showChangePasswordDialog) {
-        AlertDialog(
-            onDismissRequest = { showChangePasswordDialog = false },
-            title = { Text("تغيير كلمة السر الخاصة بالمالك") },
-            text = {
-                Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                    Text("أدخل كلمة المرور الجديدة لحساب الإدارة (رقم الهاتف: 782916997):")
-                    OutlinedTextField(
-                        value = newPasswordInput,
-                        onValueChange = { newPasswordInput = it },
-                        label = { Text("كلمة المرور الجديدة") },
-                        singleLine = true,
-                        modifier = Modifier.fillMaxWidth()
-                    )
-                    OutlinedTextField(
-                        value = confirmPasswordInput,
-                        onValueChange = { confirmPasswordInput = it },
-                        label = { Text("تأكيد كلمة المرور") },
-                        singleLine = true,
-                        modifier = Modifier.fillMaxWidth()
-                    )
-                }
-            },
-            confirmButton = {
-                Button(
-                    onClick = {
-                        if (newPasswordInput != confirmPasswordInput) {
-                            Toast.makeText(context, "كلمتا المرور غير متطابقتين", Toast.LENGTH_SHORT).show()
-                        } else {
-                            viewModel.changeOwnerPassword(
-                                newPassword = newPasswordInput,
-                                onSuccess = {
-                                    showChangePasswordDialog = false
-                                    newPasswordInput = ""
-                                    confirmPasswordInput = ""
-                                    Toast.makeText(context, "تم تغيير كلمة سر المالك بنجاح!", Toast.LENGTH_SHORT).show()
+                                text = when (codeEntity.status) {
+                                    "UNUSED" -> "غير مستخدم 🟢"
+                                    "USED" -> "مستخدم ⚪"
+                                    else -> "ملغي 🔴"
                                 },
-                                onError = { msg ->
-                                    Toast.makeText(context, msg, Toast.LENGTH_SHORT).show()
-                                }
+                                fontWeight = FontWeight.Bold,
+                                fontSize = 11.sp,
+                                modifier = Modifier.padding(horizontal = 8.dp, vertical = 2.dp)
                             )
                         }
                     }
-                ) {
-                    Text("حفظ التغيير")
-                }
-            },
-            dismissButton = {
-                TextButton(onClick = { showChangePasswordDialog = false }) {
-                    Text("إلغاء")
-                }
-            }
-        )
-    }
 
-    // Dialog: Add PDF or Word Document
-    if (showAddBookletDialog) {
-        val subjectsList = listOf("الرياضيات", "الكيمياء", "الفيزياء", "الأحياء", "اللغة العربية", "اللغة الإنجليزية")
-        AlertDialog(
-            onDismissRequest = { showAddBookletDialog = false },
-            title = { Text("إضافة ملزمة أو ملف دراسي جديد") },
-            text = {
-                Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                    OutlinedTextField(
-                        value = bookletTitle,
-                        onValueChange = { bookletTitle = it },
-                        label = { Text("عنوان الملزمة أو الملف") },
-                        modifier = Modifier.fillMaxWidth()
-                    )
+                    Text(text = "الخطة: ${codeEntity.planName} • السعر: ${codeEntity.priceYmr} ريال")
+                    if (codeEntity.tiedStudentPhone != null) {
+                        Text(text = "مرتبط برقم الطالب: ${codeEntity.tiedStudentPhone}", fontWeight = FontWeight.Bold, color = AmberSecondary)
+                    } else {
+                        Text(text = "نوع الكود: عام (يمكن لأي طالب استخدامه مرة واحدة)")
+                    }
 
-                    // Subject Chips
-                    Text("المادة:", fontWeight = FontWeight.Bold)
+                    if (codeEntity.status == "USED") {
+                        Text(
+                            text = "استخدمه الطالب: ${codeEntity.usedByStudentName ?: "طالب"} بتاريخ: ${codeEntity.usedAt?.let { dateFormat.format(Date(it)) }}",
+                            color = SuccessGreen,
+                            fontSize = 12.sp
+                        )
+                    }
+
                     Row(
                         modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(6.dp)
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
                     ) {
-                        subjectsList.take(3).forEach { s ->
-                            FilterChip(
-                                selected = bookletSubject == s,
-                                onClick = { bookletSubject = s },
-                                label = { Text(s, style = MaterialTheme.typography.bodySmall) }
-                            )
+                        OutlinedButton(
+                            onClick = { copyToClipboard(context, codeEntity.code, "كود الاشتراك") },
+                            modifier = Modifier.weight(1f)
+                        ) {
+                            Icon(Icons.Default.ContentCopy, contentDescription = null, modifier = Modifier.size(16.dp))
+                            Spacer(modifier = Modifier.width(4.dp))
+                            Text("نسخ الكود", fontSize = 12.sp)
+                        }
+
+                        if (codeEntity.status == "UNUSED") {
+                            Button(
+                                onClick = { viewModel.adminCancelCode(codeEntity.id, codeEntity.code) },
+                                colors = ButtonDefaults.buttonColors(containerColor = ErrorRed),
+                                modifier = Modifier.weight(1f)
+                            ) {
+                                Text("إلغاء الكود", fontSize = 12.sp)
+                            }
                         }
                     }
-
-                    // Format Toggle: PDF or Word
-                    Text("نوع الملف:", fontWeight = FontWeight.Bold)
-                    Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                        FilterChip(
-                            selected = bookletType == "PDF",
-                            onClick = { bookletType = "PDF" },
-                            label = { Text("ملف PDF") }
-                        )
-                        FilterChip(
-                            selected = bookletType == "WORD",
-                            onClick = { bookletType = "WORD" },
-                            label = { Text("ملف Word (docx)") }
-                        )
-                    }
-
-                    OutlinedTextField(
-                        value = bookletFileName,
-                        onValueChange = { bookletFileName = it },
-                        label = { Text("اسم الملف (مثال: math_unit1.pdf)") },
-                        modifier = Modifier.fillMaxWidth()
-                    )
-
-                    OutlinedTextField(
-                        value = bookletDesc,
-                        onValueChange = { bookletDesc = it },
-                        label = { Text("وصف ومحتوى الملزمة") },
-                        modifier = Modifier.fillMaxWidth(),
-                        minLines = 2
-                    )
-                }
-            },
-            confirmButton = {
-                Button(
-                    onClick = {
-                        if (bookletTitle.isBlank()) {
-                            Toast.makeText(context, "يرجى كتابة عنوان الملزمة", Toast.LENGTH_SHORT).show()
-                        } else {
-                            viewModel.adminAddDocumentBooklet(
-                                title = bookletTitle,
-                                subjectId = 1L,
-                                subjectName = bookletSubject,
-                                fileType = bookletType,
-                                fileName = bookletFileName.ifEmpty { "${bookletTitle}.${if (bookletType == "PDF") "pdf" else "docx"}" },
-                                description = bookletDesc
-                            )
-                            showAddBookletDialog = false
-                            bookletTitle = ""
-                            bookletFileName = ""
-                            bookletDesc = ""
-                        }
-                    }
-                ) {
-                    Text("إضافة ونشر")
-                }
-            },
-            dismissButton = {
-                TextButton(onClick = { showAddBookletDialog = false }) {
-                    Text("إلغاء")
                 }
             }
-        )
+        }
     }
 
-    // Dialog: Confirm Cancel Subscription
-    if (userToCancelSub != null) {
-        val student = userToCancelSub!!
+    // Generate Code Dialog
+    if (showGenerateDialog) {
+        var selectedPlanName by remember { mutableStateOf("اشتراك 3 أشهر") }
+        var selectedMonths by remember { mutableStateOf(3) }
+        var priceYmr by remember { mutableStateOf(12000) }
+        var tiedPhoneInput by remember { mutableStateOf("") }
+
         AlertDialog(
-            onDismissRequest = { userToCancelSub = null },
-            title = { Text("تأكيد إلغاء الاشتراك") },
+            onDismissRequest = { showGenerateDialog = false },
+            title = { Text("إنشاء كود اشتراك جديد") },
             text = {
-                Text("هل أنت متأكد من رغبتك في إلغاء اشتراك الطالب '${student.fullName}' (${student.phoneOrEmail})؟ سيتم تجميد وصوله للمحتوى المدفوع فوراً.")
+                Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                    Text("اختر الخطة:")
+                    val plans = listOf(
+                        Triple("اشتراك 3 أشهر", 3, 12000),
+                        Triple("اشتراك 6 أشهر", 6, 24000),
+                        Triple("اشتراك سنوي (12 شهر)", 12, 30000)
+                    )
+                    plans.forEach { (name, m, p) ->
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clickable {
+                                    selectedPlanName = name
+                                    selectedMonths = m
+                                    priceYmr = p
+                                }
+                        ) {
+                            RadioButton(
+                                selected = selectedPlanName == name,
+                                onClick = {
+                                    selectedPlanName = name
+                                    selectedMonths = m
+                                    priceYmr = p
+                                }
+                            )
+                            Spacer(modifier = Modifier.width(4.dp))
+                            Text(name)
+                        }
+                    }
+
+                    OutlinedTextField(
+                        value = tiedPhoneInput,
+                        onValueChange = { tiedPhoneInput = it },
+                        label = { Text("رقم هاتف الطالب لربط الكود به (اختياري)") },
+                        placeholder = { Text("اتركه فارغاً لجعله كوداً عاماً") },
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                }
             },
             confirmButton = {
                 Button(
                     onClick = {
-                        viewModel.adminCancelSubscription(student.id, student.fullName)
-                        userToCancelSub = null
-                    },
-                    colors = ButtonDefaults.buttonColors(containerColor = Color.Red)
+                        viewModel.adminGenerateCode(
+                            months = selectedMonths,
+                            planName = selectedPlanName,
+                            price = priceYmr,
+                            tiedPhone = tiedPhoneInput.takeIf { it.isNotBlank() }
+                        ) {
+                            showGenerateDialog = false
+                        }
+                    }
                 ) {
-                    Text("نعم، إلغاء الاشتراك فوراً")
+                    Text("توليد الكود الآن")
                 }
             },
             dismissButton = {
-                TextButton(onClick = { userToCancelSub = null }) {
-                    Text("تراجع")
+                TextButton(onClick = { showGenerateDialog = false }) {
+                    Text("إلغاء")
                 }
             }
         )
     }
 }
+
+// -------------------------------------------------------------
+// ADMIN CONTENT MANAGEMENT
+// -------------------------------------------------------------
+@Composable
+fun AdminContentScreen(
+    viewModel: MainViewModel,
+    modifier: Modifier = Modifier
+) {
+    val subjects by viewModel.allSubjects.collectAsState()
+    var showAddSubjectDialog by remember { mutableStateOf(false) }
+
+    LazyColumn(
+        modifier = modifier
+            .fillMaxSize()
+            .padding(16.dp)
+            .testTag("admin_content_screen"),
+        verticalArrangement = Arrangement.spacedBy(12.dp)
+    ) {
+        item {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    text = "إدارة المواد والدروس 📚",
+                    style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold)
+                )
+
+                Button(
+                    onClick = { showAddSubjectDialog = true },
+                    shape = RoundedCornerShape(10.dp)
+                ) {
+                    Icon(Icons.Default.Add, contentDescription = null)
+                    Spacer(modifier = Modifier.width(4.dp))
+                    Text("إضافة مادة")
+                }
+            }
+        }
+
+        items(subjects) { subj ->
+            Card(
+                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+                shape = RoundedCornerShape(14.dp),
+                elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Row(
+                    modifier = Modifier
+                        .padding(16.dp)
+                        .fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.SpaceBetween
+                ) {
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(text = subj.name, fontWeight = FontWeight.Bold, fontSize = 16.sp)
+                        Text(text = subj.description, style = MaterialTheme.typography.bodySmall.copy(color = MaterialTheme.colorScheme.onSurfaceVariant))
+                    }
+
+                    IconButton(
+                        onClick = { viewModel.adminDeleteSubject(subj) }
+                    ) {
+                        Icon(imageVector = Icons.Default.Delete, contentDescription = "حذف", tint = ErrorRed)
+                    }
+                }
+            }
+        }
+    }
+
+    if (showAddSubjectDialog) {
+        var nameInput by remember { mutableStateOf("") }
+        var descInput by remember { mutableStateOf("") }
+        var trackInput by remember { mutableStateOf("BOTH") }
+
+        AlertDialog(
+            onDismissRequest = { showAddSubjectDialog = false },
+            title = { Text("إضافة مادة جديدة للمنهج") },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    OutlinedTextField(
+                        value = nameInput,
+                        onValueChange = { nameInput = it },
+                        label = { Text("اسم المادة") }
+                    )
+                    OutlinedTextField(
+                        value = descInput,
+                        onValueChange = { descInput = it },
+                        label = { Text("وصف المادة") }
+                    )
+                }
+            },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        if (nameInput.isNotBlank()) {
+                            viewModel.adminAddSubject(nameInput, descInput, trackInput)
+                            showAddSubjectDialog = false
+                        }
+                    }
+                ) {
+                    Text("إضافة")
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showAddSubjectDialog = false }) {
+                    Text("إلغاء")
+                }
+            }
+        )
+    }
+}
+
+// -------------------------------------------------------------
+// ADMIN NOTIFICATIONS MANAGEMENT
+// -------------------------------------------------------------
+@Composable
+fun AdminNotificationsScreen(
+    viewModel: MainViewModel,
+    modifier: Modifier = Modifier
+) {
+    var title by remember { mutableStateOf("") }
+    var message by remember { mutableStateOf("") }
+    var target by remember { mutableStateOf("ALL") }
+
+    Column(
+        modifier = modifier
+            .fillMaxSize()
+            .padding(16.dp)
+            .testTag("admin_notifications_screen"),
+        verticalArrangement = Arrangement.spacedBy(14.dp)
+    ) {
+        Text(
+            text = "إرسال إشعار للطلاب 📢",
+            style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold)
+        )
+
+        Card(
+            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+            shape = RoundedCornerShape(16.dp),
+            modifier = Modifier.fillMaxWidth()
+        ) {
+            Column(
+                modifier = Modifier.padding(16.dp),
+                verticalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
+                OutlinedTextField(
+                    value = title,
+                    onValueChange = { title = it },
+                    label = { Text("عنوان الإشعار") },
+                    modifier = Modifier.fillMaxWidth()
+                )
+
+                OutlinedTextField(
+                    value = message,
+                    onValueChange = { message = it },
+                    label = { Text("نص الرسالة أو الإشعار") },
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .heightIn(min = 100.dp)
+                )
+
+                Text(text = "الفئة المستهدفة:")
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    FilterChip(selected = target == "ALL", onClick = { target = "ALL" }, label = { Text("جميع الطلاب") })
+                    FilterChip(selected = target == "SCIENTIFIC", onClick = { target = "SCIENTIFIC" }, label = { Text("القسم العلمي") })
+                    FilterChip(selected = target == "LITERARY", onClick = { target = "LITERARY" }, label = { Text("القسم الأدبي") })
+                }
+
+                Button(
+                    onClick = {
+                        if (title.isNotBlank() && message.isNotBlank()) {
+                            viewModel.adminBroadcastNotification(title, message, target)
+                            title = ""
+                            message = ""
+                        }
+                    },
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Text("إرسال الإشعار فوراً")
+                }
+            }
+        }
+    }
+}
+
+// -------------------------------------------------------------
+// ADMIN ACTIVITY LOGS SCREEN
+// -------------------------------------------------------------
+@Composable
+fun AdminLogsScreen(
+    viewModel: MainViewModel,
+    modifier: Modifier = Modifier
+) {
+    val logs by viewModel.adminActivityLogs.collectAsState()
+    val dateFormat = SimpleDateFormat("yyyy/MM/dd HH:mm:ss", Locale.getDefault())
+
+    LazyColumn(
+        modifier = modifier
+            .fillMaxSize()
+            .padding(16.dp)
+            .testTag("admin_logs_screen"),
+        verticalArrangement = Arrangement.spacedBy(10.dp)
+    ) {
+        item {
+            Text(
+                text = "سجل العمليات الإدارية (${logs.size}) 📜",
+                style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold)
+            )
+        }
+
+        items(logs) { log ->
+            Card(
+                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+                shape = RoundedCornerShape(12.dp),
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Column(
+                    modifier = Modifier
+                        .padding(12.dp)
+                        .fillMaxWidth(),
+                    verticalArrangement = Arrangement.spacedBy(4.dp)
+                ) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween
+                    ) {
+                        Text(text = log.details, fontWeight = FontWeight.Bold, fontSize = 14.sp)
+                    }
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween
+                    ) {
+                        Text(
+                            text = "المسؤول: ${log.adminName} ${log.studentName?.let { "• الطالب: $it" } ?: ""}",
+                            style = MaterialTheme.typography.bodySmall.copy(color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        )
+                        Text(
+                            text = dateFormat.format(Date(log.timestamp)),
+                            style = MaterialTheme.typography.labelSmall.copy(color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        )
+                    }
+                }
+            }
+        }
+    }
+}
+
+// -------------------------------------------------------------
+// ADMIN STUDY MATERIALS (BOOKS, BOOKLETS, SUMMARIES)
+// -------------------------------------------------------------
+@Composable
+fun AdminStudyMaterialsScreen(
+    viewModel: MainViewModel,
+    modifier: Modifier = Modifier
+) {
+    val materials by viewModel.allStudyMaterials.collectAsState()
+    val subjects by viewModel.allSubjects.collectAsState()
+
+    var showUploadDialog by remember { mutableStateOf(false) }
+    var selectedTypeFilter by remember { mutableStateOf("ALL") }
+
+    val filtered = remember(materials, selectedTypeFilter) {
+        if (selectedTypeFilter == "ALL") materials else materials.filter { it.type == selectedTypeFilter }
+    }
+
+    LazyColumn(
+        modifier = modifier
+            .fillMaxSize()
+            .padding(16.dp)
+            .testTag("admin_study_materials_screen"),
+        verticalArrangement = Arrangement.spacedBy(12.dp)
+    ) {
+        item {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Column {
+                    Text(
+                        text = "رفع الملازم والكتب الدراسية 📑",
+                        style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold)
+                    )
+                    Text(
+                        text = "إضافة ملفات وملازم وملخصات لتظهر فوراً لجميع الطلاب",
+                        style = MaterialTheme.typography.bodySmall.copy(color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    )
+                }
+
+                Button(
+                    onClick = { showUploadDialog = true },
+                    colors = ButtonDefaults.buttonColors(containerColor = NavyPrimary),
+                    shape = RoundedCornerShape(10.dp)
+                ) {
+                    Icon(Icons.Default.Add, contentDescription = null)
+                    Spacer(modifier = Modifier.width(4.dp))
+                    Text("رفع ملف / ملزمة")
+                }
+            }
+
+            Spacer(modifier = Modifier.height(6.dp))
+
+            // Filter chips
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(6.dp)
+            ) {
+                FilterChip(selected = selectedTypeFilter == "ALL", onClick = { selectedTypeFilter = "ALL" }, label = { Text("الكل (${materials.size})", fontSize = 11.sp) })
+                FilterChip(selected = selectedTypeFilter == "BOOK", onClick = { selectedTypeFilter = "BOOK" }, label = { Text("كتب مدرسية", fontSize = 11.sp) })
+                FilterChip(selected = selectedTypeFilter == "BOOKLET", onClick = { selectedTypeFilter = "BOOKLET" }, label = { Text("ملازم وزارية", fontSize = 11.sp) })
+                FilterChip(selected = selectedTypeFilter == "SUMMARY", onClick = { selectedTypeFilter = "SUMMARY" }, label = { Text("ملخصات", fontSize = 11.sp) })
+                FilterChip(selected = selectedTypeFilter == "EXAM_SHEET", onClick = { selectedTypeFilter = "EXAM_SHEET" }, label = { Text("أوراق امتحانات", fontSize = 11.sp) })
+            }
+        }
+
+        if (filtered.isEmpty()) {
+            item {
+                Box(modifier = Modifier.fillMaxWidth().padding(top = 40.dp), contentAlignment = Alignment.Center) {
+                    Text("لا توجد ملفات مرفوعة في هذا القسم بعد.", color = MaterialTheme.colorScheme.onSurfaceVariant)
+                }
+            }
+        }
+
+        items(filtered) { item ->
+            Card(
+                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+                shape = RoundedCornerShape(14.dp),
+                elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Row(
+                    modifier = Modifier
+                        .padding(14.dp)
+                        .fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(12.dp)
+                ) {
+                    Box(
+                        modifier = Modifier
+                            .size(46.dp)
+                            .clip(RoundedCornerShape(10.dp))
+                            .background(
+                                when (item.type) {
+                                    "BOOK" -> Color(0xFFEFF6FF)
+                                    "BOOKLET" -> Color(0xFFFEF3C7)
+                                    "SUMMARY" -> Color(0xFFECFDF5)
+                                    else -> Color(0xFFF3E8FF)
+                                }
+                            ),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Text(
+                            text = when (item.type) {
+                                "BOOK" -> "📕"
+                                "BOOKLET" -> "📑"
+                                "SUMMARY" -> "📝"
+                                else -> "📋"
+                            },
+                            fontSize = 24.sp
+                        )
+                    }
+
+                    Column(modifier = Modifier.weight(1f)) {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(6.dp)
+                        ) {
+                            Text(text = item.title, fontWeight = FontWeight.Bold, fontSize = 15.sp)
+                        }
+                        Text(
+                            text = "المادة: ${item.subjectName} • ${item.fileName.ifBlank { "ملف مرفق" }} ${if (item.fileSizeText.isNotBlank()) "(${item.fileSizeText})" else ""}",
+                            style = MaterialTheme.typography.bodySmall.copy(color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 12.sp)
+                        )
+                        if (item.description.isNotBlank()) {
+                            Text(
+                                text = item.description,
+                                style = MaterialTheme.typography.bodySmall.copy(color = Color.Gray, fontSize = 11.sp),
+                                maxLines = 2
+                            )
+                        }
+                    }
+
+                    IconButton(
+                        onClick = { viewModel.adminDeleteStudyMaterial(item) }
+                    ) {
+                        Icon(imageVector = Icons.Default.Delete, contentDescription = "حذف", tint = ErrorRed)
+                    }
+                }
+            }
+        }
+    }
+
+    if (showUploadDialog) {
+        var titleInput by remember { mutableStateOf("") }
+        var subjectInput by remember { mutableStateOf(subjects.firstOrNull()?.name ?: "الرياضيات") }
+        var typeInput by remember { mutableStateOf("BOOKLET") } // "BOOK", "BOOKLET", "SUMMARY", "EXAM_SHEET"
+        var descInput by remember { mutableStateOf("") }
+        var pickedFileName by remember { mutableStateOf("") }
+        var pickedFileSize by remember { mutableStateOf("") }
+        var pickedFileUri by remember { mutableStateOf<String?>(null) }
+
+        val context = androidx.compose.ui.platform.LocalContext.current
+        val docPickerLauncher = androidx.activity.compose.rememberLauncherForActivityResult(
+            contract = androidx.activity.result.contract.ActivityResultContracts.GetContent()
+        ) { uri: android.net.Uri? ->
+            if (uri != null) {
+                pickedFileUri = uri.toString()
+                try {
+                    val cursor = context.contentResolver.query(uri, null, null, null, null)
+                    cursor?.use {
+                        if (it.moveToFirst()) {
+                            val nameIdx = it.getColumnIndex(android.provider.OpenableColumns.DISPLAY_NAME)
+                            val sizeIdx = it.getColumnIndex(android.provider.OpenableColumns.SIZE)
+                            if (nameIdx >= 0) pickedFileName = it.getString(nameIdx) ?: "document.pdf"
+                            if (sizeIdx >= 0) {
+                                val bytes = it.getLong(sizeIdx)
+                                pickedFileSize = "${String.format(java.util.Locale.US, "%.1f", bytes / (1024.0 * 1024.0))} MB"
+                            }
+                        }
+                    }
+                } catch (e: Exception) {
+                    pickedFileName = "study_document.pdf"
+                    pickedFileSize = "PDF"
+                }
+                if (titleInput.isBlank() && pickedFileName.isNotBlank()) {
+                    titleInput = pickedFileName.substringBeforeLast(".")
+                }
+            }
+        }
+
+        AlertDialog(
+            onDismissRequest = { showUploadDialog = false },
+            title = {
+                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Text("📤", fontSize = 20.sp)
+                    Text("رفع وإضافة ملزمة أو كتاب أو ملخص", fontWeight = FontWeight.Bold)
+                }
+            },
+            text = {
+                LazyColumn(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                    item {
+                        OutlinedTextField(
+                            value = titleInput,
+                            onValueChange = { titleInput = it },
+                            label = { Text("عنوان الملف / الملزمة *") },
+                            placeholder = { Text("مثال: ملزمة ميكانيكا الثالث الثانوي") },
+                            modifier = Modifier.fillMaxWidth()
+                        )
+                    }
+
+                    item {
+                        Text("نوع الملف التعليمي:", fontWeight = FontWeight.SemiBold, fontSize = 12.sp)
+                        Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                            FilterChip(selected = typeInput == "BOOKLET", onClick = { typeInput = "BOOKLET" }, label = { Text("ملزمة", fontSize = 11.sp) })
+                            FilterChip(selected = typeInput == "BOOK", onClick = { typeInput = "BOOK" }, label = { Text("كتاب مدرسي", fontSize = 11.sp) })
+                            FilterChip(selected = typeInput == "SUMMARY", onClick = { typeInput = "SUMMARY" }, label = { Text("ملخص", fontSize = 11.sp) })
+                            FilterChip(selected = typeInput == "EXAM_SHEET", onClick = { typeInput = "EXAM_SHEET" }, label = { Text("نماذج اختبارات", fontSize = 11.sp) })
+                        }
+                    }
+
+                    item {
+                        Text("اختر المادة الدراسية:", fontWeight = FontWeight.SemiBold, fontSize = 12.sp)
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(6.dp)
+                        ) {
+                            listOf("الرياضيات", "الفيزياء", "الكيمياء", "اللغة العربية", "اللغة الإنجليزية").forEach { subj ->
+                                FilterChip(
+                                    selected = subjectInput == subj,
+                                    onClick = { subjectInput = subj },
+                                    label = { Text(subj, fontSize = 10.sp) }
+                                )
+                            }
+                        }
+                    }
+
+                    item {
+                        OutlinedTextField(
+                            value = descInput,
+                            onValueChange = { descInput = it },
+                            label = { Text("وصف محتوى الملف (اختياري)") },
+                            placeholder = { Text("مثال: يشمل حلول جميع المسائل والتعليلات الوزارية") },
+                            modifier = Modifier.fillMaxWidth()
+                        )
+                    }
+
+                    item {
+                        Surface(
+                            shape = RoundedCornerShape(10.dp),
+                            color = Color(0xFFF1F5F9),
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Column(
+                                modifier = Modifier.padding(12.dp),
+                                verticalArrangement = Arrangement.spacedBy(6.dp)
+                            ) {
+                                Text(
+                                    text = if (pickedFileName.isNotBlank()) "الملف المختار: $pickedFileName ($pickedFileSize)" else "لم يتم اختيار ملف PDF بعد",
+                                    style = MaterialTheme.typography.bodySmall.copy(
+                                        fontWeight = FontWeight.Bold,
+                                        color = if (pickedFileName.isNotBlank()) NavyPrimary else Color.Gray
+                                    )
+                                )
+                                Button(
+                                    onClick = { docPickerLauncher.launch("application/pdf") },
+                                    colors = ButtonDefaults.buttonColors(containerColor = NavyPrimary),
+                                    shape = RoundedCornerShape(8.dp),
+                                    modifier = Modifier.fillMaxWidth()
+                                ) {
+                                    Icon(Icons.Default.UploadFile, contentDescription = null)
+                                    Spacer(modifier = Modifier.width(6.dp))
+                                    Text(if (pickedFileName.isNotBlank()) "تغيير الملف المحدد 📑" else "اختيار ملف PDF من الجهاز 📑")
+                                }
+                            }
+                        }
+                    }
+                }
+            },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        if (titleInput.isNotBlank()) {
+                            viewModel.adminAddStudyMaterial(
+                                StudyMaterialEntity(
+                                    title = titleInput.trim(),
+                                    subjectName = subjectInput,
+                                    type = typeInput,
+                                    description = descInput.trim(),
+                                    fileUriOrPath = pickedFileUri,
+                                    fileName = pickedFileName.ifBlank { "$titleInput.pdf" },
+                                    fileSizeText = pickedFileSize.ifBlank { "ملف PDF" }
+                                )
+                            )
+                            showUploadDialog = false
+                        }
+                    },
+                    colors = ButtonDefaults.buttonColors(containerColor = NavyPrimary)
+                ) {
+                    Text("حفظ ونشر للطلاب 🚀")
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showUploadDialog = false }) {
+                    Text("إلغاء")
+                }
+            }
+        )
+    }
+}
+
