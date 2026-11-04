@@ -24,6 +24,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
@@ -181,6 +182,7 @@ fun AuthScreenContainer(
 ) {
     var selectedTab by remember { mutableIntStateOf(initialTabIndex) }
     var showOwnerLoginDialog by remember { mutableStateOf(false) }
+    var showOwnerIconUnlocked by remember { mutableStateOf(false) }
 
     // Owner Login Modal Dialog
     if (showOwnerLoginDialog) {
@@ -208,6 +210,10 @@ fun AuthScreenContainer(
                             modifier = Modifier
                                 .size(34.dp)
                                 .clip(RoundedCornerShape(8.dp))
+                                .secretOwnerHoldTrigger(holdDurationMs = 20_000L) {
+                                    showOwnerIconUnlocked = true
+                                    showOwnerLoginDialog = true
+                                }
                         )
                         Column {
                             Text(
@@ -226,6 +232,20 @@ fun AuthScreenContainer(
                 navigationIcon = {
                     IconButton(onClick = { viewModel.navigateBack() }) {
                         Icon(Icons.Default.ArrowForward, contentDescription = "رجوع")
+                    }
+                },
+                actions = {
+                    if (showOwnerIconUnlocked) {
+                        IconButton(
+                            onClick = { showOwnerLoginDialog = true },
+                            modifier = Modifier.testTag("admin_top_bar_button")
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.AdminPanelSettings,
+                                contentDescription = "لوحة المالك",
+                                tint = AmberSecondary
+                            )
+                        }
                     }
                 }
             )
@@ -275,6 +295,7 @@ fun AuthScreenContainer(
                     viewModel = viewModel,
                     onSwitchToRegister = { selectedTab = 1 },
                     onOpenOwnerDialog = { showOwnerLoginDialog = true },
+                    onOwnerUnlocked = { showOwnerIconUnlocked = true },
                     onSuccess = onSuccess
                 )
             } else {
@@ -293,6 +314,7 @@ fun LoginFormContent(
     viewModel: MainViewModel,
     onSwitchToRegister: () -> Unit,
     onOpenOwnerDialog: () -> Unit = {},
+    onOwnerUnlocked: () -> Unit = {},
     onSuccess: () -> Unit
 ) {
     val context = LocalContext.current
@@ -316,6 +338,7 @@ fun LoginFormContent(
         val trimmed = phone.trim()
         if (trimmed == "785502919" || trimmed.equals("rqeebpro@gmail.com", ignoreCase = true)) {
             isOwnerMode = true
+            onOwnerUnlocked()
             if (trimmed == "785502919") {
                 ownerPhone = "785502919"
             } else {
@@ -353,6 +376,7 @@ fun LoginFormContent(
                             .size(72.dp)
                             .clip(CircleShape)
                             .secretOwnerHoldTrigger(holdDurationMs = 20_000L) {
+                                onOwnerUnlocked()
                                 isOwnerMode = true
                             }
                     )

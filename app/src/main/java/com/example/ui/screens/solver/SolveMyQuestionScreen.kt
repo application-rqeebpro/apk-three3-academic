@@ -68,6 +68,7 @@ fun SolveMyQuestionScreen(
     val isSolving by viewModel.isSolving.collectAsState()
     val isVerifying by viewModel.isVerifyingSolution.collectAsState()
     val verificationReport by viewModel.verificationReport.collectAsState()
+    val solverElapsedSeconds by viewModel.solverElapsedSeconds.collectAsState()
 
     var selectedImageUri by remember { mutableStateOf<Uri?>(null) }
     var showVerifyDialog by remember { mutableStateOf(false) }
@@ -715,13 +716,13 @@ fun SolveMyQuestionScreen(
                         .testTag("solve_question_button")
                 ) {
                     if (isSolving) {
-                        CircularProgressIndicator(modifier = Modifier.size(20.dp), color = Color.White)
+                        CircularProgressIndicator(modifier = Modifier.size(20.dp), color = Color.White, strokeWidth = 2.dp)
                         Spacer(modifier = Modifier.width(8.dp))
-                        Text(text = "جاري قراءة وتدقيق وحل المسألة...", color = Color.White)
+                        Text(text = "جاري الحل والتدقيق (1-2 دقيقة) ⏱️", color = Color.White, fontSize = 13.sp)
                     } else {
-                        Icon(imageVector = Icons.Default.Calculate, contentDescription = null)
+                        Icon(imageVector = Icons.Default.Timer, contentDescription = null, tint = AmberSecondary)
                         Spacer(modifier = Modifier.width(8.dp))
-                        Text(text = "حل المسألة بالخطوات الوزارية 🚀", fontWeight = FontWeight.Bold)
+                        Text(text = "حل المسألة بالخطوات الوزارية (1-2 دقيقة) ⏱️", fontWeight = FontWeight.Bold, fontSize = 13.5.sp)
                     }
                 }
 
@@ -731,6 +732,97 @@ fun SolveMyQuestionScreen(
                     modifier = Modifier.height(52.dp)
                 ) {
                     Text(text = "مسح")
+                }
+            }
+        }
+
+        // Live Timer Card during Solving
+        if (isSolving) {
+            item {
+                Card(
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(16.dp),
+                    colors = CardDefaults.cardColors(containerColor = Color(0xFFF0FDF4)),
+                    border = androidx.compose.foundation.BorderStroke(1.5.dp, Color(0xFF86EFAC))
+                ) {
+                    Column(
+                        modifier = Modifier.padding(16.dp),
+                        verticalArrangement = Arrangement.spacedBy(10.dp)
+                    ) {
+                        val minutes = solverElapsedSeconds / 60
+                        val seconds = solverElapsedSeconds % 60
+                        val timeFormatted = String.format("%02d:%02d", minutes, seconds)
+                        val estimatedMax = 90f // 1.5 min target
+                        val progress = (solverElapsedSeconds.toFloat() / estimatedMax).coerceIn(0.05f, 0.95f)
+
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(8.dp)
+                            ) {
+                                CircularProgressIndicator(
+                                    progress = { progress },
+                                    modifier = Modifier.size(36.dp),
+                                    color = Color(0xFF16A34A),
+                                    strokeWidth = 3.5.dp
+                                )
+                                Column {
+                                    Text(
+                                        text = "جاري استخراج وتدقيق الحل الوزاري...",
+                                        fontWeight = FontWeight.Bold,
+                                        fontSize = 13.5.sp,
+                                        color = Color(0xFF166534)
+                                    )
+                                    Text(
+                                        text = "يستغرق عادة من دقيقة إلى دقيقتين ⏱️",
+                                        fontSize = 11.sp,
+                                        color = Color(0xFF15803D)
+                                    )
+                                }
+                            }
+
+                            Surface(
+                                shape = RoundedCornerShape(8.dp),
+                                color = Color(0xFFDCFCE7)
+                            ) {
+                                Text(
+                                    text = "$timeFormatted د",
+                                    fontWeight = FontWeight.Black,
+                                    fontSize = 14.sp,
+                                    color = Color(0xFF166534),
+                                    modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
+                                )
+                            }
+                        }
+
+                        LinearProgressIndicator(
+                            progress = { progress },
+                            modifier = Modifier.fillMaxWidth().height(6.dp).clip(RoundedCornerShape(3.dp)),
+                            color = Color(0xFF16A34A),
+                            trackColor = Color(0xFFBBF7D0)
+                        )
+
+                        val currentStage = when {
+                            solverElapsedSeconds < 15 -> "📖 قراءة وفهم مسألة $selectedSubject وتحديد المعطيات والمطلوب..."
+                            solverElapsedSeconds < 35 -> "🇾🇪 استدعاء القوانين الوزارية المعتمدة لمنهاج ثالث ثانوي باليمن..."
+                            solverElapsedSeconds < 60 -> "📐 تنفيذ التعويض الرياضي والحسابات خطوة بخطوة وإزالة الرموز المشوشة (*$&#)..."
+                            solverElapsedSeconds < 85 -> "🔍 التدقيق المستقل للوحدات والإشارات لضمان الدرجة الكاملة..."
+                            else -> "✨ إعداد التفسير المبسط واللمسات الإيضاحية للحل..."
+                        }
+
+                        Text(
+                            text = currentStage,
+                            style = MaterialTheme.typography.bodySmall.copy(
+                                color = Color(0xFF166534),
+                                fontWeight = FontWeight.Medium,
+                                fontSize = 11.5.sp
+                            )
+                        )
+                    }
                 }
             }
         }
@@ -1369,9 +1461,9 @@ fun SolveMyQuestionScreen(
                                         .weight(1f)
                                         .testTag("easier_explanation_button")
                                 ) {
-                                    Icon(Icons.Default.AutoFixHigh, contentDescription = null, modifier = Modifier.size(18.dp))
+                                    Icon(Icons.Default.HelpOutline, contentDescription = null, modifier = Modifier.size(18.dp))
                                     Spacer(modifier = Modifier.width(6.dp))
-                                    Text(text = "اشرح لي بطريقة أسهل 💡", fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                                    Text(text = "لم أفهم الحل؟ اشرح لي 💡", fontSize = 11.5.sp, fontWeight = FontWeight.Bold)
                                 }
                             }
                         }

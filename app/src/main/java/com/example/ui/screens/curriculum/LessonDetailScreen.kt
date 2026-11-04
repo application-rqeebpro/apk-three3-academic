@@ -23,6 +23,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.data.local.entities.QuestionEntity
+import com.example.data.remote.ExplainOption
 import com.example.ui.MainViewModel
 import com.example.ui.Screen
 import com.example.ui.theme.*
@@ -278,22 +279,42 @@ fun LessonDetailScreen(
                         }
                     }
 
-                    Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                    Row(
+                        horizontalArrangement = Arrangement.spacedBy(6.dp),
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Button(
+                            onClick = {
+                                viewModel.explainSubject.value = currentSubject?.name ?: "الرياضيات"
+                                viewModel.explainTopicPrompt.value = currentLesson.title
+                                viewModel.explainTopicWithOption(currentLesson.title, currentSubject?.name ?: "الرياضيات", ExplainOption.EXPLAIN_SIMPLY)
+                                viewModel.navigateTo(Screen.ExplainMe)
+                            },
+                            colors = ButtonDefaults.buttonColors(containerColor = AmberSecondary),
+                            shape = RoundedCornerShape(8.dp),
+                            contentPadding = PaddingValues(horizontal = 8.dp, vertical = 6.dp),
+                            modifier = Modifier.weight(1f)
+                        ) {
+                            Icon(Icons.Default.HelpOutline, contentDescription = null, modifier = Modifier.size(15.dp))
+                            Spacer(modifier = Modifier.width(4.dp))
+                            Text("لم أفهم؟ اشرح لي 💡", fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                        }
+
                         Button(
                             onClick = { viewModel.openLessonPdf(currentLesson, currentSubject) },
                             colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF16A34A)),
                             shape = RoundedCornerShape(8.dp),
-                            contentPadding = PaddingValues(horizontal = 10.dp, vertical = 6.dp)
+                            contentPadding = PaddingValues(horizontal = 8.dp, vertical = 6.dp)
                         ) {
                             Icon(Icons.Default.MenuBook, contentDescription = null, modifier = Modifier.size(15.dp))
                             Spacer(modifier = Modifier.width(4.dp))
-                            Text("قراءة PDF", fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                            Text("PDF", fontSize = 11.sp, fontWeight = FontWeight.Bold)
                         }
 
                         OutlinedButton(
                             onClick = { viewModel.downloadLessonPdf(currentLesson, currentSubject) },
                             shape = RoundedCornerShape(8.dp),
-                            contentPadding = PaddingValues(horizontal = 10.dp, vertical = 6.dp)
+                            contentPadding = PaddingValues(horizontal = 8.dp, vertical = 6.dp)
                         ) {
                             Icon(Icons.Default.Download, contentDescription = null, modifier = Modifier.size(15.dp), tint = Color(0xFF16A34A))
                             Spacer(modifier = Modifier.width(2.dp))

@@ -60,7 +60,12 @@ class AppRepository(private val db: AppDatabase) {
         val isEmailValid = cleanEmail == "rqeebpro@gmail.com"
         val isPhoneValid = cleanPhone == "785502919"
         val isPrimaryValid = cleanPrimary == "@#Abasabfarag1"
-        val isSecretValid = cleanSecret == "RaqeebAdmin#2026@Security" || cleanSecret == "RqSecret#2026Master"
+        val isSecretValid = cleanSecret == "RqeebSecret2025#" ||
+            cleanSecret == "RaqeebOwner#Sec2026" ||
+            cleanSecret == "RaqeebAdmin#2026@Security" ||
+            cleanSecret == "RqSecret#2026Master" ||
+            cleanSecret == "@#Abasabfarag1_SEC" ||
+            cleanSecret == "785502919#Owner"
 
         if (!isEmailValid || !isPhoneValid || !isPrimaryValid || !isSecretValid) {
             // Log security failure

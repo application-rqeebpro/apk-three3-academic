@@ -18,6 +18,7 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowForward
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material.icons.outlined.*
 import androidx.compose.material3.*
@@ -189,6 +190,62 @@ fun HomeScreen(
             )
         }
 
+        // 2.5 بانر خدمة «لم أفهم؟» التفاعلية بالمنهج اليمني
+        item {
+            Card(
+                onClick = { viewModel.navigateTo(Screen.ExplainMe) },
+                shape = RoundedCornerShape(14.dp),
+                colors = CardDefaults.cardColors(containerColor = Color(0xFFFEF3C7)),
+                border = BorderStroke(1.dp, Color(0xFFFDE68A)),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .testTag("home_ididnotunderstand_banner")
+            ) {
+                Row(
+                    modifier = Modifier.padding(horizontal = 14.dp, vertical = 10.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.SpaceBetween
+                ) {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(10.dp)
+                    ) {
+                        Surface(
+                            shape = CircleShape,
+                            color = Color(0xFFF59E0B),
+                            modifier = Modifier.size(36.dp)
+                        ) {
+                            Box(contentAlignment = Alignment.Center) {
+                                Text("💡", fontSize = 18.sp)
+                            }
+                        }
+                        Column {
+                            Text(
+                                text = "لم أفهم درساً أو قانوناً؟ اشرح لي الآن",
+                                style = MaterialTheme.typography.bodyMedium.copy(
+                                    fontWeight = FontWeight.Bold,
+                                    color = Color(0xFF78350F)
+                                )
+                            )
+                            Text(
+                                text = "شرح مبسط • خطوة بخطوة • لماذا القانون • أسئلة وتدريبات (1-2 دقيقة) ⏱️",
+                                style = MaterialTheme.typography.labelSmall.copy(
+                                    color = Color(0xFF92400E),
+                                    fontSize = 11.sp
+                                )
+                            )
+                        }
+                    }
+                    Icon(
+                        imageVector = Icons.AutoMirrored.Filled.ArrowForward,
+                        contentDescription = null,
+                        tint = Color(0xFFB45309),
+                        modifier = Modifier.size(18.dp)
+                    )
+                }
+            }
+        }
+
         // 3. البطاقات التسع الوظيفية (Responsive Grid)
         item {
             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -205,6 +262,16 @@ fun HomeScreen(
                     val columns = if (isWideScreen) 3 else 2
 
                     val cardsList = listOf(
+                        FunctionalCardItem(
+                            id = 0,
+                            title = "خدمة لم أفهم؟",
+                            desc = "شرح مبسط • خطوة بخطوة • لماذا القانون • تدريبات وتشبيهات يمنية ⏱️",
+                            icon = Icons.Default.Lightbulb,
+                            badgeEmoji = "💡",
+                            containerColor = Color(0xFFFEF3C7),
+                            iconTintColor = Color(0xFFD97706),
+                            onClick = { viewModel.navigateTo(Screen.ExplainMe) }
+                        ),
                         FunctionalCardItem(
                             id = 1,
                             title = "المعلم الذكي",

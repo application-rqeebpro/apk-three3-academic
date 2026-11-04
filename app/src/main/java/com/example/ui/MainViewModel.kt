@@ -8,12 +8,15 @@ import com.example.data.local.AppDatabase
 import com.example.data.local.DatabaseSeeder
 import com.example.data.local.entities.*
 import com.example.data.remote.AttachedFile
+import com.example.data.remote.ExplainOption
 import com.example.data.remote.GeminiRepository
 import com.example.data.repository.AppRepository
 import com.example.data.solver.EducationalSolution
 import com.example.data.solver.EducationalSolverEngine
 import com.example.data.solver.ProblemVerification
 import com.example.data.solver.toFormattedEducationalText
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
 
@@ -55,7 +58,7 @@ sealed class Screen(val title: String) {
     object Profile : Screen("حسابي")
     object Login : Screen("تسجيل الدخول")
     object Register : Screen("إنشاء حساب جديد")
-    object ExplainMe : Screen("خدمة اشرح لي")
+    object ExplainMe : Screen("خدمة لم أفهم؟")
     object SubscriptionGate : Screen("تفعيل الاشتراك")
     object AdminDashboard : Screen("لوحة تحكم المالك")
     object AdminStudents : Screen("إدارة الطلاب")
@@ -122,10 +125,19 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     private val _explanationLevel = MutableStateFlow("عادي")
     val explanationLevel = _explanationLevel.asStateFlow()
 
-    // Easier Explanation dynamic text
+    // Easier Explanation & خدمة «لم أفهم؟»
     private val _simplerExplanationText = MutableStateFlow<String?>(null)
     val simplerExplanationText = _simplerExplanationText.asStateFlow()
     val isGeneratingSimpler = MutableStateFlow(false)
+    val isExplainingWithTimer = MutableStateFlow(false)
+    val explainDurationSeconds = MutableStateFlow(0)
+    val selectedExplainOption = MutableStateFlow(ExplainOption.EXPLAIN_SIMPLY)
+    val explainSubject = MutableStateFlow("الرياضيات")
+    val explainTopicPrompt = MutableStateFlow("")
+
+    val solverElapsedSeconds = MutableStateFlow(0)
+    private var solverTimerJob: Job? = null
+    private var explainTimerJob: Job? = null
 
     // Smart Tutor Chat
     private val _chatMessages = MutableStateFlow<List<ChatMessage>>(
@@ -397,27 +409,56 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         _explanationLevel.value = level
     }
 
-    fun requestSimplerExplanation() {
-        val lesson = _selectedLesson.value ?: return
-        if (lesson.easierExplanation.isNotBlank()) {
-            _simplerExplanationText.value = lesson.easierExplanation
-        } else {
-            viewModelScope.launch {
-                isGeneratingSimpler.value = true
-                val result = geminiRepo.explainSimpler(lesson.title, lesson.simplifiedExplanation)
+    fun explainTopicWithOption(
+        topic: String,
+        subject: String = explainSubject.value,
+        option: ExplainOption = selectedExplainOption.value
+    ) {
+        val cleanTopic = topic.trim()
+        if (cleanTopic.isBlank()) {
+            toastMessage.value = "يرجى كتابة المفهوم أو المسألة أولاً"
+            return
+        }
+
+        viewModelScope.launch {
+            isGeneratingSimpler.value = true
+            isExplainingWithTimer.value = true
+            explainDurationSeconds.value = 0
+            selectedExplainOption.value = option
+            explainSubject.value = subject
+            explainTopicPrompt.value = cleanTopic
+
+            explainTimerJob?.cancel()
+            explainTimerJob = viewModelScope.launch {
+                while (isExplainingWithTimer.value) {
+                    delay(1000L)
+                    explainDurationSeconds.value += 1
+                }
+            }
+
+            try {
+                val result = geminiRepo.explainIDidNotUnderstand(cleanTopic, subject, option)
                 _simplerExplanationText.value = result
+            } finally {
+                explainTimerJob?.cancel()
                 isGeneratingSimpler.value = false
+                isExplainingWithTimer.value = false
             }
         }
     }
 
+    fun requestSimplerExplanation() {
+        val lesson = _selectedLesson.value ?: return
+        val subject = _selectedSubject.value?.name ?: "الرياضيات"
+        explainSubject.value = subject
+        explainTopicPrompt.value = lesson.title
+        explainTopicWithOption(lesson.title, subject, selectedExplainOption.value)
+    }
+
     fun explainCustomTopic(prompt: String, subject: String) {
-        viewModelScope.launch {
-            isGeneratingSimpler.value = true
-            val result = geminiRepo.explainConceptSimpler(prompt, subject)
-            _simplerExplanationText.value = result
-            isGeneratingSimpler.value = false
-        }
+        explainSubject.value = subject
+        explainTopicPrompt.value = prompt
+        explainTopicWithOption(prompt, subject, selectedExplainOption.value)
     }
 
     // ---------------------------------------------------------
@@ -506,16 +547,30 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
 
         viewModelScope.launch {
             isSolving.value = true
+            solverElapsedSeconds.value = 0
             verificationReport.value = null
-            val solution = geminiRepo.solveStudentQuestionStructured(
-                questionText = text,
-                imageBitmap = bmp,
-                attachedFile = file,
-                subject = solverSelectedSubject.value
-            )
-            solverStructuredResult.value = solution
-            solverResultText.value = solution.toFormattedEducationalText()
-            isSolving.value = false
+
+            solverTimerJob?.cancel()
+            solverTimerJob = viewModelScope.launch {
+                while (isSolving.value) {
+                    delay(1000L)
+                    solverElapsedSeconds.value += 1
+                }
+            }
+
+            try {
+                val solution = geminiRepo.solveStudentQuestionStructured(
+                    questionText = text,
+                    imageBitmap = bmp,
+                    attachedFile = file,
+                    subject = solverSelectedSubject.value
+                )
+                solverStructuredResult.value = solution
+                solverResultText.value = solution.toFormattedEducationalText()
+            } finally {
+                solverTimerJob?.cancel()
+                isSolving.value = false
+            }
         }
     }
 
@@ -530,13 +585,17 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
-    fun requestEasierExplanationForCurrentProblem() {
+    fun requestEasierExplanationForCurrentProblem(option: ExplainOption = ExplainOption.EXPLAIN_SIMPLY) {
         val current = solverStructuredResult.value ?: return
-        if (current.easierExplanation.isNotBlank()) {
-            _simplerExplanationText.value = current.easierExplanation
+        val prompt = if (current.questionUnderstanding.isNotBlank()) {
+            current.questionUnderstanding
         } else {
-            explainCustomTopic("اشرح لي حل هذه المسألة بأبسط أسلوب ممكن:\n${current.finalAnswer}", current.subject)
+            current.finalAnswer
         }
+        selectedExplainOption.value = option
+        explainSubject.value = current.subject
+        explainTopicPrompt.value = prompt
+        explainTopicWithOption(prompt, current.subject, option)
         navigateTo(Screen.ExplainMe)
     }
 
